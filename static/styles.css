@@ -1,0 +1,68 @@
+body, html {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    background-color: #f5f5dc; /* 米白色背景 */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; /* 設置易讀的字體 */
+}
+
+.chat-container {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    padding: 20px;
+}
+
+.chat-box {
+    width: 45%;
+    margin: 5px;
+    max-height: 80vh; /* 設置最大高度 */
+    overflow-y: auto; /* 啟用滾輪 */
+    color: #505050; /* 深灰色字體 */
+    text-align: left;
+    word-wrap: break-word; /* 允許文字自動換行 */
+    white-space: pre-wrap; /* 保持空白格式並自動換行 */
+}
+
+
+#aiBox {
+    text-align: left;
+}
+
+#userBox {
+    text-align: right;
+}
+
+.input-container {
+    width: 100%;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    background-color: #f5f5dc;
+    padding: 10px 0;
+    text-align: center;
+}
+
+.chat-input {
+    width: 80%;
+    padding: 10px;
+    margin-top: 10px;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+    background-color: #fff;
+}
+
+button {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    background-color: #1e90ff;
+    color: #fff;
+    cursor: pointer;
+    width: 20%;
+}

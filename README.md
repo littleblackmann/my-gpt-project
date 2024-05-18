@@ -27,10 +27,12 @@ Flask、OpenAI、LangChain 和 python-dotenv
 
 ### 5. templates資料夾中創建一個index.html的檔案在輸入程式碼
 
-### 6. 在去執行python3 app.py
+### 6. 在去創建static資料夾，在static資料夾中創建script.js跟styles.css
+
+### 7. 在去執行python3 app.py
 ![AI筆記5-執行](https://hackmd.io/_uploads/rJ22b1UXR.png)
 
-### 7. 瀏覽器輸入localhost:9527
+### 8. 瀏覽器輸入localhost:9527
 ![截圖 2024-05-18 晚上10.35.59](https://hackmd.io/_uploads/SkMlpVLQC.png)
 
 

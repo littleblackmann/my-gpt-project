@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小黑AI</title>
+    <style>
+        body {
+            background-color: #000;
+            color: #fff;
+            font-family: Arial, sans-serif;
+        }
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .chat-box {
+            width: 80%;
+            margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            word-wrap: break-word; /* 確保文本自動換行 */
+        }
+        .chat-input {
+            width: 50%;
+            padding: 10px;
+            margin-top: 20px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            margin-bottom: 10px;
+            background-color: #f5f5dc; /* 米白色背景 */
+            overflow: hidden;
+            resize: none; /* 禁止調整大小 */
+        }
+        .chat-message {
+            margin: 10px 0;
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+        }
+        .chat-message .user, .chat-message .ai {
+            padding: 10px;
+            border-radius: 5px;
+            white-space: pre-wrap; /* 保持空白字符並換行 */
+            max-width: 45%;
+            background-color: #f5f5dc; /* 米白色背景 */
+        }
+        .chat-message .user {
+            color: #1e90ff;
+            text-align: right;
+            margin-left: auto;
+        }
+        .chat-message .ai {
+            color: #32cd32;
+            text-align: left;
+            margin-right: auto;
+        }
+        button {
+            padding: 10px 20px;
+            margin-top: 10px;
+            border: none;
+            border-radius: 5px;
+            background-color: #1e90ff;
+            color: #fff;
+            cursor: pointer;
+        }
+        .input-container {
+            display: flex;
+            justify-content: center;
+            width: 100%;
+            position: fixed;
+            bottom: 0;
+            background-color: #000;
+            padding: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <h1>小黑AI</h1>
+        <div id="chatBox" class="chat-box"></div>
+        <div class="input-container">
+            <textarea id="userInput" rows="1" class="chat-input" placeholder="輸入你的訊息..." oninput="autoGrow(this)"></textarea><br>
+            <button onclick="sendMessage()">發送</button>
+        </div>
+    </div>
+
+    <script>
+        function autoGrow(element) {
+            element.style.height = "5px";
+            element.style.height = (element.scrollHeight) + "px";
+        }
+
+        document.getElementById("userInput").addEventListener("keydown", function(event) {
+            if (event.key === "Enter" && !event.shiftKey) {
+                event.preventDefault();
+                sendMessage();
+            }
+        });
+
+        async function sendMessage() {
+            const userInput = document.getElementById("userInput").value;
+            if (userInput.trim() === "") {
+                return;
+            }
+            const response = await fetch("/chat", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ message: userInput })
+            });
+            const data = await response.json();
+            const chatBox = document.getElementById("chatBox");
+            chatBox.innerHTML += `<div class="chat-message"><div class="ai"><strong>AI:</strong> ${data.response}</div><div class="user"><strong>你:</strong> ${userInput}</div></div>`;
+            document.getElementById("userInput").value = "";
+            autoGrow(document.getElementById("userInput"));
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+    </script>
+</body>
+</html>

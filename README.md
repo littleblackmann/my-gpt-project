@@ -10,23 +10,23 @@
 ### 1. 安裝必要的套件
 確認你已經安裝了Python然後在終端機運行以下命令來安裝 
 Flask、OpenAI、LangChain 和 python-dotenv
-`python3 --version`
+* `python3 --version`
 
-`pip3 install flask openai langchain python-dotenv`
+* `pip3 install flask openai langchain python-dotenv`
 
 ### 2. 創建資料夾
 在你的工作目錄中創建一個新的資料夾
-`pwd`
-我的是/Users/black/程式練習/my-gpt-project
+* `pwd`
+* 我的是/Users/black/程式練習/my-gpt-project
 
 ### 3. 創建 .env 文件
 在項目根目錄中創建一個.env的文件，並添加你的 OpenAI API 金鑰
-`nano .env`
+* `nano .env`
 裡面的程式碼放
-`OPENAI_API_KEY=[自己的OPENAI_API_KEY]`
+* `OPENAI_API_KEY=[自己的OPENAI_API_KEY]`
 
 ### 4. 再去創建app.py輸入程式碼
-`nano app.py`
+* `nano app.py`
 ```
 from flask import Flask, render_template, request, jsonify
 import openai
@@ -71,9 +71,9 @@ if __name__ == "__main__":
      app.run(debug=True, port=9527)
 ```
 ### 5. 在去創建templates資料夾，在templates裡面創建一個index.html的檔案在輸入程式碼
-`mkdir templates`
-`cd templates`
-`nano index.html`
+* `mkdir templates`
+* `cd templates`
+* `nano index.html`
 ```
 <!DOCTYPE html>
 <html lang="zh-TW">
@@ -98,10 +98,10 @@ if __name__ == "__main__":
 ```
 
 ### 6. 在回到my-gpt-project去創建static資料夾，在static資料夾中創建script.js跟styles.css
-`cd ..`
-`mkdir static`
-`cd static`
-`nano script.js`
+* `cd ..`
+* `mkdir static`
+* `cd static`
+* `nano script.js`
 ```
 function autoGrow(element) {
     element.style.height = "5px";
@@ -157,7 +157,9 @@ async function sendMessage() {
     autoScrollToBottom(aiBox); // 確保滾動到底部
 }
 ```
-`nano styles.css`
+
+* `nano styles.css`
+
 ```
 body, html {
     width: 100%;
@@ -231,7 +233,7 @@ button {
 
 
 ### 7. 在去執行python3 app.py
-`python3 app.py`
+* `python3 app.py`
 
 ### 8. 瀏覽器輸入localhost:9527
 ![截圖 2024-05-18 晚上10.35.59](https://hackmd.io/_uploads/SkMlpVLQC.png)

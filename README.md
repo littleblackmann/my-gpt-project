@@ -22,7 +22,7 @@ Flask、OpenAI、LangChain 和 python-dotenv
 ### 3. 創建 .env 文件
 在項目根目錄中創建一個.env的文件，並添加你的 OpenAI API 金鑰
 * `nano .env`
-裡面的程式碼放
+* 裡面的程式碼放
 * `OPENAI_API_KEY=[自己的OPENAI_API_KEY]`
 
 ### 4. 再去創建app.py輸入程式碼

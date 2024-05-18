@@ -21,7 +21,7 @@ body, html {
 .chat-box {
     width: 45%;
     margin: 5px;
-    max-height: 80vh; /* 設置最大高度 */
+    max-height: 80vh; /* 設定最大高度 */
     overflow-y: auto; /* 啟用滾輪 */
     color: #505050; /* 深灰色字體 */
     text-align: left;

@@ -31,7 +31,7 @@ Flask、OpenAI、LangChain 和 python-dotenv
 ![AI筆記5-執行](https://hackmd.io/_uploads/rJ22b1UXR.png)
 
 ### 7. 瀏覽器輸入localhost:9527
-![AI測試9](https://hackmd.io/_uploads/HyORWJ870.png)
+![截圖 2024-05-18 晚上10.35.59](https://hackmd.io/_uploads/SkMlpVLQC.png)
 
 
 

@@ -22,32 +22,25 @@ Flask、OpenAI、LangChain 和 python-dotenv
 ### 3. 創建 .env 文件
 在項目根目錄中創建一個.env的文件，並添加你的 OpenAI API 金鑰
 * `nano .env`
-* 裡面的程式碼放
+裡面的程式碼放
 * `OPENAI_API_KEY=[自己的OPENAI_API_KEY]`
 
 ### 4. 再去創建app.py輸入程式碼
 * `nano app.py`
 ```
 from flask import Flask, render_template, request, jsonify
-import openai
-from langchain.chains import LLMChain
-from langchain.llms import OpenAI
-from langchain.prompts import PromptTemplate
 from dotenv import load_dotenv
 import os
+from openai import OpenAI
 
 app = Flask(__name__)
 
-# 載入 .env 檔案中的環境變量
+# 載入 .env 檔案中的環境變數
 load_dotenv()
 openai_api_key = os.getenv("OPENAI_API_KEY")
 
-# 設置 OpenAI API 密鑰
-openai.api_key = openai_api_key
-
-llm = OpenAI(api_key=openai_api_key, max_tokens=1500) # 調整 max_tokens 為更大的值
-prompt_template = PromptTemplate(input_variables=["prompt"], template="{prompt}")
-chain = LLMChain(llm=llm, prompt=prompt_template)
+# 設定 OpenAI API 金鑰
+client = OpenAI(api_key=openai_api_key)
 
 @app.route("/")
 def home():
@@ -58,14 +51,21 @@ def chat():
      try:
          user_input = request.json.get("message")
          print("從客戶端收到:", user_input) # 調試
-         response = chain.invoke(input=user_input) # 傳遞 input 參數
-         print("發送到客戶端的回應:", response) # 調試
-         return jsonify({"response": response})
+
+         # 使用 OpenAI 的聊天模型 API
+         response = client.chat.completions.create(
+             model="gpt-4", # 確保使用適當的模型
+             messages=[{"role": "user", "content": user_input}],
+             max_tokens=1500
+         )
+
+         # 從回應中提取文本
+         message = response.choices[0].message.content
+         print("傳送到客戶端的回應:", message) # 偵錯
+         return jsonify({"response": message})
      except Exception as e:
          app.logger.error(f"處理請求出錯: {str(e)}")
          return jsonify({"error": str(e)}), 500
-
-
 
 if __name__ == "__main__":
      app.run(debug=True, port=9527)
@@ -103,46 +103,36 @@ if __name__ == "__main__":
 * `cd static`
 * `nano script.js`
 ```
+// 此函數使輸入框根據內容自動調整高度
 function autoGrow(element) {
     element.style.height = "5px";
     element.style.height = (element.scrollHeight + 10) + "px";
 }
 
-let enterPressCount = 0;
-
+// 為輸入框添加事件監聽器，處理按下 Enter 鍵發送消息
 document.getElementById("userInput").addEventListener("keydown", function(event) {
     if (event.key === "Enter" && !event.shiftKey) {
-        event.preventDefault();
-        enterPressCount++;
-        console.log("按 Enter 次數:", enterPressCount); // 調試
-        if (enterPressCount >= 2) {
-            sendMessage();
-            enterPressCount = 0;
-        }
-    } else if (event.shiftKey && event.key === "Enter") {
-        enterPressCount = 0;
+        event.preventDefault(); // 阻止預設的 Enter 鍵行為（新增換行）
+        sendMessage(); // 發送消息
     }
 });
 
-function autoScrollToBottom(container) {
-    setTimeout(() => {
-        container.scrollTop = container.scrollHeight;
-    }, 0); // 延遲0毫秒，確保DOM完全更新後執行滾動
-}
-
+// 這個函數處理消息的發送
 async function sendMessage() {
-    const userInput = document.getElementById("userInput").value;
-    if (userInput.trim() === "") {
-        console.log("輸入為空。"); // 調試
+    const userInput = document.getElementById("userInput").value.trim();
+    if (!userInput) {
+        console.log("輸入為空。"); // 如果輸入是空的，不執行任何操作
         return;
     }
-    document.getElementById("userInput").value = "";
-    autoGrow(document.getElementById("userInput"));
+    document.getElementById("userInput").value = ""; // 清空輸入框
+    autoGrow(document.getElementById("userInput")); // 調整輸入框大小
 
+    // 在使用者消息框中顯示輸入
     const userBox = document.getElementById("userBox");
-    userBox.textContent += userInput + "\n"; // 更新使用 textContent 以直接新增文字
-    autoScrollToBottom(userBox); // 確保滾動到底部
+    userBox.textContent += "" + userInput + "\n"; // 添加使用者的輸入
+    autoScrollToBottom(userBox); // 自動滾動到底部
 
+    // 向後端發送 POST 請求
     const response = await fetch("/chat", {
         method: "POST",
         headers: {
@@ -151,11 +141,23 @@ async function sendMessage() {
         body: JSON.stringify({ message: userInput })
     });
 
+    if (!response.ok) {
+        console.error('Failed to fetch:', response.status);
+        return;
+    }
+
+    // 處理後端的回應
     const data = await response.json();
     const aiBox = document.getElementById("aiBox");
-    aiBox.textContent += data.response.text || '未獲得有效回應'; //直接增加
+    aiBox.textContent += "" + (data.response || '未獲得有效回應') + "\n"; // 顯示 AI 回應
     autoScrollToBottom(aiBox); // 確保滾動到底部
 }
+
+// 此函數確保聊天框可以自動滾動到底部
+function autoScrollToBottom(container) {
+    container.scrollTop = container.scrollHeight;
+}
+
 ```
 
 * `nano styles.css`
@@ -236,7 +238,8 @@ button {
 * `python3 app.py`
 
 ### 8. 瀏覽器輸入localhost:9527
-![截圖 2024-05-18 晚上10.35.59](https://hackmd.io/_uploads/SkMlpVLQC.png)
+![ＧＰＴ成果圖](https://hackmd.io/_uploads/B1FYOaFXC.png)
+
 
 
 

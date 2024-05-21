@@ -54,7 +54,7 @@ def chat():
 
          # 使用 OpenAI 的聊天模型 API
          response = client.chat.completions.create(
-             model="gpt-4", # 確保使用適當的模型
+             model="gpt-4o", # 確保使用適當的模型
              messages=[{"role": "user", "content": user_input}],
              max_tokens=1500
          )
@@ -238,7 +238,7 @@ button {
 * `python3 app.py`
 
 ### 8. 瀏覽器輸入localhost:9527
-![ＧＰＴ成果圖](https://hackmd.io/_uploads/B1FYOaFXC.png)
+![GPT-4結果圖](https://hackmd.io/_uploads/r10-10tmA.png)
 
 
 

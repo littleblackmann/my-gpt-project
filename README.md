@@ -238,7 +238,7 @@ button {
 * `python3 app.py`
 
 ### 8. 瀏覽器輸入localhost:9527
-![GPT-4結果圖](https://hackmd.io/_uploads/rkzjx0FQ0.png)
+![簡易聊天](https://hackmd.io/_uploads/B1hag1wSC.png)
 
 
 

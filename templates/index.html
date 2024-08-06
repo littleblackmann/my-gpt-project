@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小黑AI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <div class="chat-container">
+        <div id="aiBox" class="chat-box"></div>
+        <div id="userBox" class="chat-box"></div>
+    </div>
+    <div class="input-container">
+        <textarea id="userInput" class="chat-input" placeholder="輸入你的訊息..." oninput="autoGrow(this)"></textarea>
+        <button id="sendButton" onclick="sendMessage()">發送</button>
+        <div class="file-upload-container">
+            <input type="file" id="fileInput" accept=".txt,.pdf,.doc,.docx,.jpg">
+            <button id="uploadButton" onclick="uploadAndAnalyzeFile()">上傳並分析文件</button>
+        </div>
+    </div>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

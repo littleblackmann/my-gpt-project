@@ -1,8 +1,0 @@
-
-
-eclips ºô³k:
-  http://www.eclipse.org/
-
-
-Eclipse Web Tools Platform (WTP) Project:
-  http://www.eclipse.org/downloads/eclipse-packages/

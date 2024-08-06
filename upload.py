@@ -1,29 +1,34 @@
-from flask import Blueprint, request, jsonify, current_app
+from flask import Blueprint, request, jsonify
 import os
 from werkzeug.utils import secure_filename
 from openai import OpenAI
 from dotenv import load_dotenv
 import io
-import PyPDF2
 from PIL import Image
-import pytesseract
+from PyPDF2 import PdfReader
+from docx import Document
 
 # 載入 .env 檔案中的環境變數
 load_dotenv()
 openai_api_key = os.getenv("OPENAI_API_KEY")
 
+# 創建一個藍圖
 upload_bp = Blueprint('upload', __name__)
 
+# 設置上傳文件夾
 UPLOAD_FOLDER = 'uploads'
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
-ALLOWED_EXTENSIONS = {'txt', 'pdf', 'doc', 'docx', 'jpg',}
+# 允許的文件類型
+ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'doc','docx'}
 
+# 初始化 OpenAI 客戶端
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 @upload_bp.route('/upload', methods=['POST'])
 def upload_file():
@@ -40,6 +45,14 @@ def upload_file():
     else:
         return jsonify({"error": "File type not allowed"}), 400
 
+def extract_text_from_pdf(filepath):
+    with open(filepath, 'rb') as file:
+        reader = PdfReader(file)
+        text = ""
+        for page in reader.pages:
+            text += page.extract_text() + "\n"
+    return text
+
 @upload_bp.route('/analyze/<filename>', methods=['POST'])
 def analyze_file(filename):
     filepath = os.path.join(UPLOAD_FOLDER, filename)
@@ -47,41 +60,25 @@ def analyze_file(filename):
         return jsonify({"error": "File not found"}), 404
 
     try:
-        file_content = ""
-        if filename.endswith('.pdf'):
-            import PyPDF2
-            with open(filepath, 'rb') as file:
-                reader = PyPDF2.PdfReader(file)
-                file_content = "\n".join([page.extract_text() for page in reader.pages])
-        elif filename.endswith('.txt'):
+        if filename.lower().endswith('.pdf'):
+            file_content = extract_text_from_pdf(filepath)
+        else:
             with io.open(filepath, 'r', encoding='utf-8') as file:
                 file_content = file.read()
-        elif filename.endswith('.doc') or filename.endswith('.docx'):
-            from docx import Document
-            doc = Document(filepath)
-            file_content = "\n".join([paragraph.text for paragraph in doc.paragraphs])
-        elif filename.endswith('.jpg') or filename.endswith('.jpeg'):
-            # 使用Pillow和pytesseract來提取圖像中的文字
-            image = Image.open(filepath)
-            file_content = pytesseract.image_to_string(image)
-        else:
-            return jsonify({"error": "Unsupported file type"}), 400
 
+        # 使用 OpenAI 進行分析
         response = client.chat.completions.create(
-            model="gpt-4o",
+            model="gpt-4o", 
             messages=[
-                {"role": "system", "content": "你是一個能夠分析文件的助手，請用中文提供分析結果。"},
-                {"role": "user", "content": f"請分析以下文件並提供摘要：\n\n{file_content[:6666]}"}
+                {"role": "system", "content": "你是一個有用的助手，負責分析文檔。請使用繁體中文回答。"},
+                {"role": "user", "content": f"請分析以下文檔並提供摘要：\n\n{file_content[:4000]}"}  # 限制輸入長度
             ],
             max_tokens=777
         )
 
         analysis = response.choices[0].message.content
-
-        # 刪除上傳的檔案
         os.remove(filepath)
-
+        
         return jsonify({"analysis": analysis}), 200
     except Exception as e:
-        current_app.logger.error(f"Error analyzing file {filename}: {str(e)}")
-        return jsonify({"error": f"An error occurred while analyzing the file: {str(e)}"}), 500
+        return jsonify({"error": str(e)}), 500

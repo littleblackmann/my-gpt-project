@@ -4,29 +4,33 @@ body, html {
     margin: 0;
     padding: 0;
     background-color: #f5f5dc;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     display: flex;
     flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
 .chat-container {
+    flex: 1;
     width: 100%;
     display: flex;
     justify-content: space-between;
     padding: 20px;
+    box-sizing: border-box;
+    overflow: hidden;
 }
 
 .chat-box {
-    width: 45%;
-    margin: 5px;
-    max-height: 80vh;
+    width: 48%;
+    height: calc(100vh - 200px); /* 調整高度 */
     overflow-y: auto;
     color: #505050;
-    text-align: left;
     word-wrap: break-word;
     white-space: pre-wrap;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    padding: 10px;
+    background-color: #fff;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
 }
 
 #aiBox {
@@ -39,21 +43,20 @@ body, html {
 
 .input-container {
     width: 100%;
-    position: fixed;
-    bottom: 0;
-    left: 0;
     background-color: #f5f5dc;
-    padding: 10px 0;
-    text-align: center;
+    padding: 20px;
+    box-sizing: border-box;
 }
 
 .chat-input {
-    width: 80%;
+    width: calc(100% - 22px);
     padding: 10px;
-    margin-top: 10px;
+    margin-bottom: 10px;
     border-radius: 5px;
     border: 1px solid #ccc;
     background-color: #fff;
+    font-size: 16px;
+    resize: vertical;
 }
 
 button {
@@ -63,6 +66,12 @@ button {
     background-color: #1e90ff;
     color: #fff;
     cursor: pointer;
+    font-size: 16px;
+    transition: background-color 0.3s;
+}
+
+button:hover {
+    background-color: #1a7ae1;
 }
 
 .file-upload-container {
@@ -78,5 +87,21 @@ button {
 
 #uploadButton {
     background-color: #4CAF50;
-    margin-left: 10px;
+}
+
+#uploadButton:hover {
+    background-color: #45a049;
+}
+
+.chat-box::-webkit-scrollbar {
+    width: 8px;
+}
+
+.chat-box::-webkit-scrollbar-thumb {
+    background-color: #888;
+    border-radius: 4px;
+}
+
+.chat-box::-webkit-scrollbar-thumb:hover {
+    background-color: #555;
 }

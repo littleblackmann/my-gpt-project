@@ -20,26 +20,30 @@ async function sendMessage() {
     autoGrow(document.getElementById("userInput"));
 
     const userBox = document.getElementById("userBox");
-    userBox.textContent += "" + userInput + "\n";
+    userBox.textContent += "您: \n" + userInput + "\n";
     autoScrollToBottom(userBox);
 
-    const response = await fetch("/chat", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ message: userInput })
-    });
+    try {
+        const response = await fetch("/chat", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ message: userInput })
+        });
 
-    if (!response.ok) {
-        console.error('Failed to fetch:', response.status);
-        return;
+        if (!response.ok) {
+            throw new Error('伺服器回應錯誤: ' + response.status);
+        }
+
+        const data = await response.json();
+        const aiBox = document.getElementById("aiBox");
+        await typeWriter(aiBox, "AI: \n" + (data.response || '未獲得有效回應') + "\n");
+        autoScrollToBottom(aiBox);
+    } catch (error) {
+        console.error('錯誤:', error);
+        alert('發送消息時出錯: ' + error.message);
     }
-
-    const data = await response.json();
-    const aiBox = document.getElementById("aiBox");
-    aiBox.textContent += "" + (data.response || '未獲得有效回應') + "\n";
-    autoScrollToBottom(aiBox);
 }
 
 async function uploadAndAnalyzeFile() {
@@ -60,7 +64,7 @@ async function uploadAndAnalyzeFile() {
         });
 
         if (!uploadResponse.ok) {
-            throw new Error('文件上傳失敗');
+            throw new Error('文件上傳失敗: ' + uploadResponse.status);
         }
 
         const uploadResult = await uploadResponse.json();
@@ -71,22 +75,65 @@ async function uploadAndAnalyzeFile() {
         });
 
         if (!analyzeResponse.ok) {
-            throw new Error('文件分析失敗');
+            throw new Error('文件分析失敗: ' + analyzeResponse.status);
         }
 
         const analysisResult = await analyzeResponse.json();
         console.log('文件分析結果:', analysisResult);
 
         const aiBox = document.getElementById("aiBox");
-        aiBox.textContent += "文件分析結果：\n" + analysisResult.analysis + "\n";
+        await typeWriter(aiBox, "AI (文件分析結果)：\n" + analysisResult.analysis + "\n");
         autoScrollToBottom(aiBox);
-
     } catch (error) {
         console.error('錯誤:', error);
-        alert(error.message);
+        alert('文件處理錯誤: ' + error.message);
+    }
+}
+
+async function typeWriter(element, text, speed = 20) {
+    for (let i = 0; i < text.length; i++) {
+        element.textContent += text.charAt(i);
+        autoScrollToBottom(element);
+        await new Promise(resolve => setTimeout(resolve, speed));
     }
 }
 
 function autoScrollToBottom(container) {
-    container.scrollTop = container.scrollHeight;
+    setTimeout(() => {
+        container.scrollTop = container.scrollHeight;
+    }, 0);
 }
+
+function enableSmoothScroll(element) {
+    element.style.scrollBehavior = 'smooth';
+}
+
+function adjustContainerHeight(container) {
+    const maxHeight = window.innerHeight * 0.7; // 視窗高度的 70%
+    container.style.maxHeight = `${maxHeight}px`;
+    container.style.overflowY = 'auto';
+}
+
+document.addEventListener('DOMContentLoaded', (event) => {
+    const aiBox = document.getElementById("aiBox");
+    const userBox = document.getElementById("userBox");
+    
+    adjustContainerHeight(aiBox);
+    adjustContainerHeight(userBox);
+
+    enableSmoothScroll(aiBox);
+    enableSmoothScroll(userBox);
+
+    const observer = new MutationObserver(() => {
+        autoScrollToBottom(aiBox);
+        autoScrollToBottom(userBox);
+    });
+
+    observer.observe(aiBox, { childList: true, subtree: true });
+    observer.observe(userBox, { childList: true, subtree: true });
+});
+
+window.addEventListener('resize', () => {
+    adjustContainerHeight(document.getElementById("aiBox"));
+    adjustContainerHeight(document.getElementById("userBox"));
+});

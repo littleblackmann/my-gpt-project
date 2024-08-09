@@ -1,17 +1,19 @@
+let uploadedFile = null;
+let inputConfirmed = false; // 記錄是否已確認輸入
+
 function autoGrow(element) {
     element.style.height = "5px";
-    element.style.height = (element.scrollHeight + 10) + "px";
+    element.style.height = (element.scrollHeight) + "px";
 }
 
-let enterPressCount = 0;
-
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     const chatContainer = document.getElementById("chatContainer");
     const userInput = document.getElementById("userInput");
     const fileInput = document.getElementById('fileInput');
     const uploadButton = document.getElementById('uploadButton');
     const fileName = document.getElementById('fileName');
-    const analyzeButton = document.getElementById('analyzeButton');
+    const sendButton = document.getElementById('sendButton');
+    const inputStatus = document.getElementById('inputStatus'); // 用於顯示狀態的元素
 
     adjustContainerHeight(chatContainer);
     enableSmoothScroll(chatContainer);
@@ -24,48 +26,78 @@ document.addEventListener('DOMContentLoaded', function() {
 
     addWelcomeMessage();
 
-    userInput.addEventListener("keydown", function(event) {
+    userInput.addEventListener("keydown", function (event) {
         if (event.key === "Enter" && !event.shiftKey) {
             event.preventDefault();
-            enterPressCount++;
-            if (enterPressCount === 2) {
-                sendMessage();
-                enterPressCount = 0;
+
+            if (!inputConfirmed) {
+                inputConfirmed = true; // 第一次按下 Enter 確認輸入
+                userInput.classList.add("confirmed");
+                inputStatus.textContent = "輸入已確認，按 Enter 發送訊息";
+            } else {
+                sendMessage(); // 第二次按下 Enter 發送訊息
             }
+        } else if (event.key === "Enter" && event.shiftKey) {
+            const start = this.selectionStart;
+            const end = this.selectionEnd;
+            const value = this.value;
+            this.value = value.substring(0, start) + "\n" + value.substring(end);
+            this.selectionStart = this.selectionEnd = start + 1;
+            event.preventDefault();
+            autoGrow(this);
         }
     });
 
-    uploadButton.addEventListener('click', function() {
+    userInput.addEventListener("input", function () {
+        autoGrow(this);
+        inputConfirmed = false; // 當用戶繼續輸入時，重置確認狀態
+        userInput.classList.remove("confirmed");
+        inputStatus.textContent = ""; // 清除狀態文字
+    });
+
+    uploadButton.addEventListener('click', function () {
         fileInput.click();
     });
 
-    fileInput.addEventListener('change', function() {
+    fileInput.addEventListener('change', function () {
         if (this.files && this.files[0]) {
-            fileName.textContent = this.files[0].name;
-            analyzeButton.style.display = 'inline-block';
+            uploadedFile = this.files[0];
+            fileName.textContent = uploadedFile.name;
+            userInput.placeholder = "輸入有關文件的問題或直接發送...";
         }
     });
 
-    analyzeButton.addEventListener('click', function() {
-        uploadAndAnalyzeFile();
-    });
+    sendButton.addEventListener('click', sendMessage);
 });
 
 async function sendMessage() {
-    const userInput = document.getElementById("userInput").value.trim();
-    if (!userInput) {
-        console.log("輸入為空。");
+    const userInput = document.getElementById("userInput");
+    const message = userInput.value.trim();
+
+    if (!message && !uploadedFile) {
+        console.log("沒有輸入訊息或上傳文件。");
         return;
     }
-    document.getElementById("userInput").value = "";
-    autoGrow(document.getElementById("userInput"));
 
+    if (uploadedFile) {
+        await uploadAndAnalyzeFile(uploadedFile, message);
+        resetInputArea();
+    } else {
+        await sendTextMessage(message);
+    }
+
+    userInput.value = "";
+    autoGrow(userInput);
+    inputConfirmed = false; // 重置確認狀態
+    document.getElementById('inputStatus').textContent = ""; // 清除狀態文字
+}
+
+async function sendTextMessage(message) {
     const chatContainer = document.getElementById("chatContainer");
-    
-    // 創建並添加用戶消息
+
     const userMessage = document.createElement("div");
     userMessage.className = "message user-message";
-    userMessage.textContent = userInput;
+    userMessage.textContent = message;
     chatContainer.appendChild(userMessage);
 
     autoScrollToBottom(chatContainer);
@@ -76,7 +108,7 @@ async function sendMessage() {
             headers: {
                 "Content-Type": "application/json"
             },
-            body: JSON.stringify({ message: userInput })
+            body: JSON.stringify({ message: message })
         });
 
         if (!response.ok) {
@@ -84,8 +116,7 @@ async function sendMessage() {
         }
 
         const data = await response.json();
-        
-        // 創建並添加 AI 消息
+
         const aiMessage = document.createElement("div");
         aiMessage.className = "message ai-message";
         chatContainer.appendChild(aiMessage);
@@ -98,19 +129,12 @@ async function sendMessage() {
     }
 }
 
-async function uploadAndAnalyzeFile() {
-    const fileInput = document.getElementById('fileInput');
-    const file = fileInput.files[0];
-    if (!file) {
-        displayError('請選擇一個文件');
-        return;
-    }
-
-    const formData = new FormData();
-    formData.append('file', file);
-
+async function uploadAndAnalyzeFile(file, question) {
     try {
-        displayMessage('正在上傳文件...', 'system-message');
+        displayMessage(`正在上傳文件: <span class="file-name">${file.name}</span>`, 'system-message');
+
+        const formData = new FormData();
+        formData.append('file', file);
 
         const uploadResponse = await fetch('/upload', {
             method: 'POST',
@@ -124,7 +148,22 @@ async function uploadAndAnalyzeFile() {
         const uploadResult = await uploadResponse.json();
         console.log('文件上傳成功:', uploadResult);
 
-        displayMessage(`文件 "${uploadResult.filename}" 上傳成功`, 'system-message');
+        displayMessage(`文件 "<span class="file-name">${uploadResult.filename}</span>" 上傳成功`, 'system-message');
+
+        if (file.type.startsWith('image/')) {
+            const imagePreview = document.createElement('img');
+            imagePreview.src = URL.createObjectURL(file);
+            imagePreview.alt = file.name;
+            imagePreview.style.maxWidth = '100%';
+            imagePreview.style.maxHeight = '300px';
+            imagePreview.style.marginTop = '10px';
+            imagePreview.style.borderRadius = '8px';
+            const previewContainer = document.createElement('div');
+            previewContainer.className = 'message ai-message';
+            previewContainer.appendChild(imagePreview);
+            document.getElementById("chatContainer").appendChild(previewContainer);
+        }
+
         displayMessage('正在分析文件...', 'system-message');
 
         const analyzeUrl = `/analyze/${encodeURIComponent(uploadResult.filename)}`;
@@ -135,7 +174,7 @@ async function uploadAndAnalyzeFile() {
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ question: '請分析這個文件並提供摘要' })
+            body: JSON.stringify({ question: question || "請分析這個文件並提供摘要" })
         });
 
         if (!analyzeResponse.ok) {
@@ -150,7 +189,7 @@ async function uploadAndAnalyzeFile() {
         aiMessage.className = "message ai-message";
         chatContainer.appendChild(aiMessage);
 
-        await typeWriter(aiMessage, "AI (文件分析結果)：\n" + analysisResult.analysis);
+        await typeWriter(aiMessage, `AI（文件分析結果：${file.name}：${analysisResult.analysis}`);
         autoScrollToBottom(chatContainer);
     } catch (error) {
         console.error('錯誤:', error);
@@ -159,13 +198,13 @@ async function uploadAndAnalyzeFile() {
 }
 
 async function typeWriter(element, text, speed = 20) {
-    element.innerHTML = ''; // 使用 innerHTML 而不是 textContent
+    element.innerHTML = '';
     const lines = text.split('\n');
     for (let line of lines) {
         const lineElement = document.createElement('p');
         element.appendChild(lineElement);
         for (let i = 0; i < line.length; i++) {
-            lineElement.textContent += line.charAt(i);
+            lineElement.innerHTML += line.charAt(i);
             autoScrollToBottom(element.parentElement);
             await new Promise(resolve => setTimeout(resolve, speed));
         }
@@ -183,7 +222,7 @@ function enableSmoothScroll(element) {
 }
 
 function adjustContainerHeight(container) {
-    const maxHeight = window.innerHeight * 0.7; // 視窗高度的 70%
+    const maxHeight = window.innerHeight * 0.7;
     container.style.maxHeight = `${maxHeight}px`;
     container.style.overflowY = 'auto';
 }
@@ -209,18 +248,22 @@ function displayMessage(message, className) {
     const chatContainer = document.getElementById("chatContainer");
     const messageElement = document.createElement("div");
     messageElement.className = `message ${className}`;
-    
+
     const lines = message.split('\n');
     lines.forEach(line => {
         const p = document.createElement('p');
-        p.textContent = line;
+        p.innerHTML = line;
         messageElement.appendChild(p);
     });
-    
+
     chatContainer.appendChild(messageElement);
     autoScrollToBottom(chatContainer);
 }
 
-window.addEventListener('resize', () => {
-    adjustContainerHeight(document.getElementById("chatContainer"));
-});
+function resetInputArea() {
+    uploadedFile = null;
+    document.getElementById('userInput').value = "";
+    document.getElementById('fileName').textContent = "";
+    document.getElementById('userInput').placeholder = "輸入您的訊息...";
+    inputConfirmed = false;
+}

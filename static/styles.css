@@ -85,8 +85,11 @@ body, html {
     background-color: #2d3748;
     color: #e2e8f0;
     font-size: 15px;
-    resize: vertical;
+    resize: none;
     font-family: inherit;
+    min-height: 40px;
+    max-height: 200px;
+    overflow-y: auto;
 }
 
 .button-container {
@@ -140,31 +143,16 @@ button:hover {
     color: #8e8ea0;
 }
 
-#analyzeButton {
-    margin-top: 10px;
-    padding: 8px 16px;
-    background-color: #10a37f;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: background-color 0.3s ease;
-}
-
-#analyzeButton:hover {
-    background-color: #0d8c6f;
-}
-
-.chat-container::-webkit-scrollbar, .sidebar::-webkit-scrollbar {
+.chat-container::-webkit-scrollbar, .sidebar::-webkit-scrollbar, .chat-input::-webkit-scrollbar {
     width: 8px;
 }
 
-.chat-container::-webkit-scrollbar-thumb, .sidebar::-webkit-scrollbar-thumb {
+.chat-container::-webkit-scrollbar-thumb, .sidebar::-webkit-scrollbar-thumb, .chat-input::-webkit-scrollbar-thumb {
     background-color: #4a5568;
     border-radius: 4px;
 }
 
-.chat-container::-webkit-scrollbar-thumb:hover, .sidebar::-webkit-scrollbar-thumb:hover {
+.chat-container::-webkit-scrollbar-thumb:hover, .sidebar::-webkit-scrollbar-thumb:hover, .chat-input::-webkit-scrollbar-thumb:hover {
     background-color: #718096;
 }
 
@@ -196,4 +184,30 @@ button:hover {
     padding: 8px 12px;
     border-radius: 8px;
     max-width: 80%;
+    margin: 10px 0;
+    font-size: 14px;
+}
+
+.file-name {
+    font-weight: bold;
+    color: #4299e1;
+}
+
+.analysis-result {
+    border-left: 3px solid #4299e1;
+    padding-left: 10px;
+    margin-top: 5px;
+}
+
+.message p {
+    margin: 5px 0;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.message, .system-message {
+    animation: fadeIn 0.3s ease-out;
 }

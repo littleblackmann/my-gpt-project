@@ -7,23 +7,18 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
 <body>
-    <!--
-    <div class="sidebar">
-        <h2>歷史對話</h2>
-        <div id="historyList">
-            # 這裡將動態插入歷史對話記錄 
-        </div>
-    </div>
-    -->
     <div class="main-content">
         <div class="chat-container">
             <div id="chatContainer" class="chat-box"></div>
             <div id="userBox" class="chat-box"></div>
         </div>
         <div class="input-container">
-            <textarea id="userInput" class="chat-input" placeholder="輸入你的訊息..." oninput="autoGrow(this)"></textarea>
+            <div class="textarea-wrapper">
+                <textarea id="userInput" class="chat-input input-validation" placeholder="輸入你的訊息..." rows="1"></textarea>
+                <div id="inputStatus" class="input-status"></div>
+            </div>
             <div class="button-container">
-                <button id="sendButton" onclick="sendMessage()">發送</button>
+                <button id="sendButton">發送</button>
                 <div class="upload-container">
                     <input type="file" id="fileInput" style="display: none;" accept=".txt,.pdf,.doc,.docx,.png,.jpg,.jpeg,.gif">
                     <button id="uploadButton" class="upload-button" title="上傳文件">
@@ -34,7 +29,6 @@
                     <span id="fileName"></span>
                 </div>
             </div>
-            <button id="analyzeButton" style="display: none;">分析</button>
         </div>
     </div>
     <script src="{{ url_for('static', filename='script.js') }}"></script>

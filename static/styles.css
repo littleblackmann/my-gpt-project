@@ -121,7 +121,7 @@ button:hover {
     border: none;
     cursor: pointer;
     padding: 0;
-    margin-left: -1320px;
+    margin-left: 10px;
 }
 
 .upload-icon {

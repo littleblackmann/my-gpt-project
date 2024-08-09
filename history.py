@@ -1,8 +1,7 @@
 from flask import Blueprint, redirect, url_for, session
-from flask_login import login_user, current_user
-from your_database_module import save_user_data_to_mongo  # 假設有一個儲存使用者資料的函式
+from flask_login import login_user, logout_user, current_user
+from database import save_user_data_to_mongo
 from flask_dance.contrib.google import make_google_blueprint, google
-from your_user_model import User  # 假設有一個用戶模型
 from dotenv import load_dotenv
 import os
 
@@ -17,7 +16,7 @@ google_blueprint = make_google_blueprint(
     client_id=os.getenv('GOOGLE_CLIENT_ID'),
     client_secret=os.getenv('GOOGLE_CLIENT_SECRET'),
     scope=['profile', 'email'],
-    redirect_to='history.google_login'  # 指向 google_login 函式
+    redirect_to='history.google_login'
 )
 
 # 註冊藍圖
@@ -43,10 +42,10 @@ def google_login():
         save_user_data_to_mongo(user_id, email)
 
         # 登入使用者
-        user = User.get(user_id)  # 假設 User 是你的使用者模型
+        user = User.get(user_id)
         login_user(user)
 
-        return redirect(url_for('index'))  # 導向主頁
+        return redirect(url_for('index'))
     else:
         return redirect(url_for('index'))
 
@@ -54,4 +53,4 @@ def google_login():
 @history_bp.route('/logout')
 def logout():
     logout_user()
-    return redirect(url_for('index'))  # 導向主頁
+    return redirect(url_for('index'))

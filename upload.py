@@ -2,15 +2,27 @@ import os
 from flask import Blueprint, request, jsonify, current_app
 from werkzeug.utils import secure_filename
 from openai import OpenAI
-import pytesseract
-from PIL import Image
 from PyPDF2 import PdfReader
 from docx import Document
+from PIL import Image
+import io
+import base64
+from dotenv import load_dotenv
 
+load_dotenv()
 upload_bp = Blueprint('upload', __name__)
 
-# 確保您已經設置了 OPENAI_API_KEY
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# 獲取 API 密鑰
+api_key = os.getenv("OPENAI_API_KEY")
+if not api_key:
+    raise ValueError("No OpenAI API key found. Please set the OPENAI_API_KEY environment variable.")
+
+# 初始化 OpenAI 客戶端
+try:
+    client = OpenAI(api_key=api_key)
+except Exception as e:
+    print(f"Failed to initialize OpenAI client: {str(e)}")
+    raise
 
 ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'doc', 'docx'}
 
@@ -44,15 +56,6 @@ def extract_text_from_docx(filepath):
     doc = Document(filepath)
     return "\n".join([paragraph.text for paragraph in doc.paragraphs])
 
-def extract_text_from_image(filepath):
-    try:
-        image = Image.open(filepath)
-        text = pytesseract.image_to_string(image, lang='chi_tra+eng')
-        return text
-    except Exception as e:
-        current_app.logger.error(f"從圖片提取文字時出錯: {str(e)}")
-        return f"無法從圖片中提取文字。錯誤: {str(e)}"
-
 @upload_bp.route('/analyze/<filename>', methods=['POST'])
 def analyze_file(filename):
     filepath = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
@@ -60,35 +63,64 @@ def analyze_file(filename):
         return jsonify({"error": "File not found"}), 404
 
     try:
+        current_app.logger.info(f"開始分析文件: {filename}")
         file_extension = os.path.splitext(filename)[1].lower()
         
-        if file_extension == '.pdf':
-            content = extract_text_from_pdf(filepath)
+        if file_extension in ['.png', '.jpg', '.jpeg', '.gif']:
+            with open(filepath, "rb") as image_file:
+                image_data = base64.b64encode(image_file.read()).decode('utf-8')
+            
+            try:
+                response = client.chat.completions.create(
+                    model="gpt-4o-mini",  # 更新為新的模型名稱
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": [
+                                {"type": "text", "text": "請分析這張圖片並提供詳細描述。"},
+                                {
+                                    "type": "image_url",
+                                    "image_url": {
+                                        "url": f"data:image/png;base64,{image_data}",
+                                        "detail": "auto"  # 添加 detail 參數
+                                    }
+                                },
+                            ],
+                        }
+                    ],
+                    max_tokens=300,
+                )
+                analysis = response.choices[0].message.content
+            except Exception as e:
+                current_app.logger.error(f"OpenAI API 請求錯誤: {str(e)}")
+                return jsonify({"error": f"API 請求錯誤: {str(e)}"}), 400
+        elif file_extension == '.pdf':
+            file_content = extract_text_from_pdf(filepath)
         elif file_extension in ['.docx', '.doc']:
-            content = extract_text_from_docx(filepath)
-        elif file_extension in ['.png', '.jpg', '.jpeg', '.gif']:
-            content = extract_text_from_image(filepath)
+            file_content = extract_text_from_docx(filepath)
         elif file_extension == '.txt':
             with open(filepath, 'r', encoding='utf-8') as file:
-                content = file.read()
+                file_content = file.read()
         else:
             return jsonify({"error": "Unsupported file type"}), 400
 
-        if not content:
-            return jsonify({"error": "無法提取文件內容"}), 400
+        if file_extension not in ['.png', '.jpg', '.jpeg', '.gif']:
+            user_question = request.json.get('question', '請分析這個文件並提供摘要')
+            try:
+                response = client.chat.completions.create(
+                    model="gpt-4o",  # 使用新的模型名稱
+                    messages=[
+                        {"role": "system", "content": "你是一個有用的助手，負責分析文檔並回答問題。請使用繁體中文回答。"},
+                        {"role": "user", "content": f"文件內容：\n\n{file_content[:4000]}\n\n用戶問題：{user_question}"}
+                    ],
+                    max_tokens=1000
+                )
+                analysis = response.choices[0].message.content
+            except Exception as e:
+                current_app.logger.error(f"OpenAI API 請求錯誤: {str(e)}")
+                return jsonify({"error": f"API 請求錯誤: {str(e)}"}), 400
 
-        user_question = request.json.get('question', '請分析這個文件並提供摘要')
-
-        response = client.chat.completions.create(
-            model="gpt-4o",
-            messages=[
-                {"role": "system", "content": "你是一個有用的助手，負責分析文檔並回答問題。請使用繁體中文回答。"},
-                {"role": "user", "content": f"文件內容：\n\n{content[:4000]}\n\n用戶問題：{user_question}"}
-            ],
-            max_tokens=1000
-        )
-        analysis = response.choices[0].message.content
-
+        current_app.logger.info(f"文件 {filename} 分析完成")
         return jsonify({"analysis": analysis}), 200
     except Exception as e:
         current_app.logger.error(f"分析文件時出錯: {str(e)}")

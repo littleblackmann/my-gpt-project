@@ -1,75 +1,195 @@
-let uploadedFile = null;
-let inputConfirmed = false; // 記錄是否已確認輸入
-
-function autoGrow(element) {
-    element.style.height = "5px";
-    element.style.height = (element.scrollHeight) + "px";
-}
+// 全局變量
+let uploadedFile = null;    // 上傳的文件
+let inputConfirmed = false; // 輸入是否已確認
 
 document.addEventListener('DOMContentLoaded', function () {
+    // 獲取 DOM 元素
     const chatContainer = document.getElementById("chatContainer");
     const userInput = document.getElementById("userInput");
     const fileInput = document.getElementById('fileInput');
     const uploadButton = document.getElementById('uploadButton');
     const fileName = document.getElementById('fileName');
     const sendButton = document.getElementById('sendButton');
-    const inputStatus = document.getElementById('inputStatus'); // 用於顯示狀態的元素
+    const inputStatus = document.getElementById('inputStatus');
+    const loginContainer = document.getElementById('login-container');
+    const userInfo = document.getElementById('user-info');
+    const userName = document.getElementById('user-name');
+    const userPicture = document.getElementById('user-picture');
+    const logoutButton = document.getElementById('logout-button');
 
+    // 初始化設置
     adjustContainerHeight(chatContainer);
     enableSmoothScroll(chatContainer);
+    addWelcomeMessage();
 
+    // 設置 MutationObserver 以在聊天內容變化時自動滾動
     const observer = new MutationObserver(() => {
         autoScrollToBottom(chatContainer);
     });
-
     observer.observe(chatContainer, { childList: true, subtree: true });
 
-    addWelcomeMessage();
+    // 添加事件監聽器
+    userInput.addEventListener("keydown", handleKeyDown);
+    userInput.addEventListener("input", handleInput);
+    uploadButton.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', handleFileUpload);
+    sendButton.addEventListener('click', sendMessage);
+    logoutButton.addEventListener('click', handleSignOut);
 
-    userInput.addEventListener("keydown", function (event) {
+    // 檢查用戶登錄狀態
+    checkLoginStatus();
+
+    // 處理鍵盤輸入
+    function handleKeyDown(event) {
         if (event.key === "Enter" && !event.shiftKey) {
             event.preventDefault();
-
             if (!inputConfirmed) {
-                inputConfirmed = true; // 第一次按下 Enter 確認輸入
-                userInput.classList.add("confirmed");
-                inputStatus.textContent = "輸入已確認，按 Enter 發送訊息";
+                confirmInput();
             } else {
-                sendMessage(); // 第二次按下 Enter 發送訊息
+                sendMessage();
             }
         } else if (event.key === "Enter" && event.shiftKey) {
-            const start = this.selectionStart;
-            const end = this.selectionEnd;
-            const value = this.value;
-            this.value = value.substring(0, start) + "\n" + value.substring(end);
-            this.selectionStart = this.selectionEnd = start + 1;
-            event.preventDefault();
-            autoGrow(this);
+            insertNewline(this);
         }
-    });
+    }
 
-    userInput.addEventListener("input", function () {
+    // 處理輸入變化
+    function handleInput() {
         autoGrow(this);
-        inputConfirmed = false; // 當用戶繼續輸入時，重置確認狀態
-        userInput.classList.remove("confirmed");
-        inputStatus.textContent = ""; // 清除狀態文字
-    });
+        resetConfirmation();
+    }
 
-    uploadButton.addEventListener('click', function () {
-        fileInput.click();
-    });
-
-    fileInput.addEventListener('change', function () {
+    // 處理文件上傳
+    function handleFileUpload() {
         if (this.files && this.files[0]) {
             uploadedFile = this.files[0];
             fileName.textContent = uploadedFile.name;
             userInput.placeholder = "輸入有關文件的問題或直接發送...";
         }
-    });
+    }
 
-    sendButton.addEventListener('click', sendMessage);
+    // 確認輸入
+    function confirmInput() {
+        inputConfirmed = true;
+        userInput.classList.add("confirmed");
+        inputStatus.textContent = "輸入已確認，按 Enter 發送訊息";
+    }
+
+    // 重置確認狀態
+    function resetConfirmation() {
+        inputConfirmed = false;
+        userInput.classList.remove("confirmed");
+        inputStatus.textContent = "";
+    }
+
+    // 插入新行
+    function insertNewline(element) {
+        const start = element.selectionStart;
+        const end = element.selectionEnd;
+        const value = element.value;
+        element.value = value.substring(0, start) + "\n" + value.substring(end);
+        element.selectionStart = element.selectionEnd = start + 1;
+        autoGrow(element);
+    }
 });
 
+// Google 登錄處理
+function handleCredentialResponse(response) {
+    console.log("Google 登錄響應:", response);
+    const id_token = response.credential;
+    console.log("準備發送到後端的 id_token:", id_token);
+    fetch('http://localhost:9527/api/auth/google', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ id_token: id_token }),
+        credentials: 'include'
+    })
+    .then(response => {
+        console.log("後端響應狀態:", response.status);
+        return response.json();
+    })
+    .then(data => {
+        console.log("後端響應數據:", data);
+        if (data.status === 'success') {
+            console.log('登錄成功:', data.user);
+            updateUIAfterLogin(data.user);
+        } else {
+            console.error('登錄失敗:', data.message);
+            alert('登錄失敗: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('錯誤:', error);
+        alert('登錄失敗，請檢查控制台以獲取更多信息。');
+    });
+}
+
+function updateUIAfterLogin(user) {
+    document.getElementById('login-container').style.display = 'none';
+    document.getElementById('user-info').style.display = 'flex';
+    document.getElementById('user-name').textContent = user.name;
+    document.getElementById('user-picture').src = user.picture;
+}
+
+function handleSignOut() {
+    fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            updateUIAfterLogout();
+        } else {
+            console.error('登出失敗:', data.message);
+        }
+    })
+    .catch(error => {
+        console.error('登出錯誤:', error);
+        alert('登出失敗，請檢查控制台以獲取更多信息。');
+    });
+}
+
+function updateUIAfterLogout() {
+    document.getElementById('login-container').style.display = 'block';
+    document.getElementById('user-info').style.display = 'none';
+    document.getElementById('user-name').textContent = '';
+    document.getElementById('user-picture').src = '';
+}
+
+function checkLoginStatus() {
+    fetch('/api/auth/user', {
+        method: 'GET',
+        credentials: 'include'
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Login status check failed');
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.status === 'success') {
+            updateUIAfterLogin(data.user);
+        } else {
+            updateUIAfterLogout();
+        }
+    })
+    .catch(error => {
+        console.error('檢查登錄狀態錯誤:', error);
+        updateUIAfterLogout();
+    });
+}
+
+// 自動調整輸入框高度
+function autoGrow(element) {
+    element.style.height = "5px";
+    element.style.height = (element.scrollHeight) + "px";
+}
+
+// 發送消息
 async function sendMessage() {
     const userInput = document.getElementById("userInput");
     const message = userInput.value.trim();
@@ -88,10 +208,11 @@ async function sendMessage() {
 
     userInput.value = "";
     autoGrow(userInput);
-    inputConfirmed = false; // 重置確認狀態
-    document.getElementById('inputStatus').textContent = ""; // 清除狀態文字
+    inputConfirmed = false;
+    document.getElementById('inputStatus').textContent = "";
 }
 
+// 發送文本消息
 async function sendTextMessage(message) {
     const chatContainer = document.getElementById("chatContainer");
 
@@ -108,7 +229,8 @@ async function sendTextMessage(message) {
             headers: {
                 "Content-Type": "application/json"
             },
-            body: JSON.stringify({ message: message })
+            body: JSON.stringify({ message: message }),
+            credentials: 'include'
         });
 
         if (!response.ok) {
@@ -129,6 +251,7 @@ async function sendTextMessage(message) {
     }
 }
 
+// 上傳並分析文件
 async function uploadAndAnalyzeFile(file, question) {
     try {
         displayMessage(`正在上傳文件: <span class="file-name">${file.name}</span>`, 'system-message');
@@ -138,7 +261,8 @@ async function uploadAndAnalyzeFile(file, question) {
 
         const uploadResponse = await fetch('/upload', {
             method: 'POST',
-            body: formData
+            body: formData,
+            credentials: 'include'
         });
 
         if (!uploadResponse.ok) {
@@ -151,17 +275,7 @@ async function uploadAndAnalyzeFile(file, question) {
         displayMessage(`文件 "<span class="file-name">${uploadResult.filename}</span>" 上傳成功`, 'system-message');
 
         if (file.type.startsWith('image/')) {
-            const imagePreview = document.createElement('img');
-            imagePreview.src = URL.createObjectURL(file);
-            imagePreview.alt = file.name;
-            imagePreview.style.maxWidth = '100%';
-            imagePreview.style.maxHeight = '300px';
-            imagePreview.style.marginTop = '10px';
-            imagePreview.style.borderRadius = '8px';
-            const previewContainer = document.createElement('div');
-            previewContainer.className = 'message ai-message';
-            previewContainer.appendChild(imagePreview);
-            document.getElementById("chatContainer").appendChild(previewContainer);
+            displayImagePreview(file);
         }
 
         displayMessage('正在分析文件...', 'system-message');
@@ -174,7 +288,8 @@ async function uploadAndAnalyzeFile(file, question) {
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ question: question || "請分析這個文件並提供摘要" })
+            body: JSON.stringify({ question: question || "請分析這個文件並提供摘要" }),
+            credentials: 'include'
         });
 
         if (!analyzeResponse.ok) {
@@ -197,6 +312,22 @@ async function uploadAndAnalyzeFile(file, question) {
     }
 }
 
+// 顯示圖片預覽
+function displayImagePreview(file) {
+    const imagePreview = document.createElement('img');
+    imagePreview.src = URL.createObjectURL(file);
+    imagePreview.alt = file.name;
+    imagePreview.style.maxWidth = '100%';
+    imagePreview.style.maxHeight = '300px';
+    imagePreview.style.marginTop = '10px';
+    imagePreview.style.borderRadius = '8px';
+    const previewContainer = document.createElement('div');
+    previewContainer.className = 'message ai-message';
+    previewContainer.appendChild(imagePreview);
+    document.getElementById("chatContainer").appendChild(previewContainer);
+}
+
+// 打字機效果
 async function typeWriter(element, text, speed = 20) {
     element.innerHTML = '';
     const lines = text.split('\n');
@@ -211,22 +342,26 @@ async function typeWriter(element, text, speed = 20) {
     }
 }
 
+// 自動滾動到底部
 function autoScrollToBottom(container) {
     setTimeout(() => {
         container.scrollTop = container.scrollHeight;
     }, 0);
 }
 
+// 啟用平滑滾動
 function enableSmoothScroll(element) {
     element.style.scrollBehavior = 'smooth';
 }
 
+// 調整容器高度
 function adjustContainerHeight(container) {
     const maxHeight = window.innerHeight * 0.7;
     container.style.maxHeight = `${maxHeight}px`;
     container.style.overflowY = 'auto';
 }
 
+// 顯示錯誤信息
 function displayError(message) {
     const chatContainer = document.getElementById("chatContainer");
     const errorMessage = document.createElement("div");
@@ -236,6 +371,7 @@ function displayError(message) {
     autoScrollToBottom(chatContainer);
 }
 
+// 添加歡迎信息
 function addWelcomeMessage() {
     const chatContainer = document.getElementById("chatContainer");
     const welcomeMessage = document.createElement("div");
@@ -244,6 +380,7 @@ function addWelcomeMessage() {
     chatContainer.appendChild(welcomeMessage);
 }
 
+// 顯示消息
 function displayMessage(message, className) {
     const chatContainer = document.getElementById("chatContainer");
     const messageElement = document.createElement("div");
@@ -260,6 +397,7 @@ function displayMessage(message, className) {
     autoScrollToBottom(chatContainer);
 }
 
+// 重置輸入區域
 function resetInputArea() {
     uploadedFile = null;
     document.getElementById('userInput').value = "";

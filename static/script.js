@@ -93,47 +93,54 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 });
 
-// Google 登錄處理
+/// Google 登錄處理
 function handleCredentialResponse(response) {
     console.log("Google 登錄響應:", response);
-    const id_token = response.credential;
-    console.log("準備發送到後端的 id_token:", id_token);
-    fetch('http://localhost:9527/api/auth/google', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ id_token: id_token }),
-        credentials: 'include'
-    })
-    .then(response => {
-        console.log("後端響應狀態:", response.status);
-        return response.json();
-    })
-    .then(data => {
-        console.log("後端響應數據:", data);
-        if (data.status === 'success') {
-            console.log('登錄成功:', data.user);
-            updateUIAfterLogin(data.user);
-        } else {
-            console.error('登錄失敗:', data.message);
-            alert('登錄失敗: ' + data.message);
-        }
-    })
-    .catch(error => {
-        console.error('錯誤:', error);
-        alert('登錄失敗，請檢查控制台以獲取更多信息。');
-    });
+    const id_token = response.credential; 
+    console.log("準備發送到後端的 id_token:", id_token); // 這是您應該發送到後端的 id_token
+
+    // 在發送請求之前加入延遲，確保 session 已經設置
+    setTimeout(() => {
+        fetch('https://537c-114-43-157-51.ngrok-free.app/api/auth/google', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ id_token: id_token }),
+            credentials: 'include'
+        })
+        .then(response => {
+            console.log("後端響應狀態:", response.status);
+            return response.json();
+        })
+        .then(data => {
+            console.log("後端響應數據:", data);
+            if (data.status === 'success') {
+                console.log('登錄成功:', data.user);
+                updateUIAfterLogin(data.user);
+            } else {
+                console.error('登錄失敗:', data.message);
+                alert('登錄失敗: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('錯誤:', error);
+            alert('登錄失敗，請檢查控制台以獲取更多信息。');
+        });
+        
+    }, 1000); // 延遲 1 秒
 }
 
-function updateUIAfterLogin(user) {
-    document.getElementById('login-container').style.display = 'none';
-    document.getElementById('user-info').style.display = 'flex';
-    document.getElementById('user-name').textContent = user.name;
-    document.getElementById('user-picture').src = user.picture;
+function updateUIAfterLogin(user) { 
+    document.getElementById('loginPage').style.display = 'none'; // 隱藏登錄頁面
+    document.getElementById('chatPage').style.display = 'block'; // 顯示聊天頁面
+    document.getElementById('user-info').style.display = 'flex'; // 顯示用戶信息
+    document.getElementById('user-name').textContent = user.name; // 設置用戶名
+    document.getElementById('user-picture').src = user.picture; // 設置用戶頭像
 }
 
-function handleSignOut() {
+
+function handleSignOut() { // 處理登出
     fetch('/api/auth/logout', {
         method: 'POST',
         credentials: 'include'
@@ -152,12 +159,15 @@ function handleSignOut() {
     });
 }
 
+// 更新登出後的 UI
 function updateUIAfterLogout() {
-    document.getElementById('login-container').style.display = 'block';
-    document.getElementById('user-info').style.display = 'none';
-    document.getElementById('user-name').textContent = '';
-    document.getElementById('user-picture').src = '';
+    document.getElementById('loginPage').style.display = 'flex'; // 顯示登錄頁面
+    document.getElementById('chatPage').style.display = 'none'; // 隱藏聊天頁面
+    document.getElementById('user-info').style.display = 'none'; // 隱藏用戶信息
+    document.getElementById('user-name').textContent = ''; // 清空用戶名
+    document.getElementById('user-picture').src = ''; // 清空用戶頭像
 }
+
 
 function checkLoginStatus() {
     fetch('/api/auth/user', {

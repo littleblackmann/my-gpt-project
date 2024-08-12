@@ -17,12 +17,13 @@ app.secret_key = os.urandom(24)  # 用於會話加密
 app.register_blueprint(upload_bp) # 註冊上傳藍圖
 app.register_blueprint(login_bp, url_prefix='/api/auth')  # Register the login blueprint
 
-CORS(app, resources={r"/api/*": {"origins": "http://localhost:9527"}}, supports_credentials=True)
+CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
 
-app.config['SESSION_TYPE'] = 'filesystem'
+app.config['SESSION_TYPE'] = 'filesystem'  # 確保這一行存在
 app.config['SESSION_PERMANENT'] = False
 app.config['SESSION_USE_SIGNER'] = True
-app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY')  # 請更改為一個安全的隨機值
+app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY')  # 確保你已設置這個環境變數
+
 Session(app)
 
 openai_api_key = os.getenv("OPENAI_API_KEY") # 從環境變數中獲取 OpenAI API 金鑰

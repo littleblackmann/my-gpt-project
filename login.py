@@ -5,6 +5,7 @@ import os
 from dotenv import load_dotenv
 import logging
 
+
 # Load environment variables
 load_dotenv()
 
@@ -24,14 +25,17 @@ def google_auth():
     logging.info("Received Google auth request")
     logging.info(f"Request data: {request.json}")
     try:
-        id_token = request.json.get('id_token')
-        if not id_token:
+        token = request.json.get('id_token')
+        if not token:
             logging.error("No id_token provided in request")
             return jsonify({'status': 'error', 'message': 'No token provided'}), 400
         
-        logging.info(f"Verifying id_token: {id_token[:10]}...")  # 只記錄前10個字符
+        logging.info(f"Verifying id_token: {token[:10]}...")  # 只記錄前10個字符
         
-        idinfo = id_token.verify_oauth2_token(id_token, requests.Request(), GOOGLE_CLIENT_ID)
+        idinfo = id_token.verify_oauth2_token(token, requests.Request(), GOOGLE_CLIENT_ID)
+        
+        # 記錄 ID 信息
+        logging.info(f"ID Info: {idinfo}")  # 在驗證後添加這一行
         
         if idinfo['iss'] not in ['accounts.google.com', 'https://accounts.google.com']:
             raise ValueError('Wrong issuer.')
@@ -44,7 +48,8 @@ def google_auth():
             'picture': idinfo.get('picture', '')
         }
         logging.info(f"User {idinfo['email']} stored in session")
-        
+        logging.info(f"Session after storing user: {session}")
+
         return jsonify({
             'status': 'success',
             'user': {
@@ -60,7 +65,15 @@ def google_auth():
         logging.error(f"Unexpected error during authentication: {str(e)}")
         return jsonify({'status': 'error', 'message': 'Authentication failed'}), 500
 
-
+@login_bp.route('/user', methods=['GET'])
+def get_user():
+    logging.info(f"Current session: {session}")
+    user = session.get('user')
+    if user:
+        return jsonify({'status': 'success', 'user': user})
+    else:
+        logging.info("User not found in session")
+        return jsonify({'status': 'error', 'message': 'User not found'}), 401
 
 @login_bp.route('/logout', methods=['POST'])
 def logout():
@@ -68,23 +81,6 @@ def logout():
     if user:
         logging.info(f"User {user['email']} logged out")
     return jsonify({'status': 'success', 'message': 'Successfully logged out'}), 200
-
-@login_bp.route('/user', methods=['GET'])
-def get_user():
-    user = session.get('user')
-    if not user:
-        logging.info("User not found in session")
-        return jsonify({'status': 'error', 'message': 'Not authenticated'}), 401
-
-    logging.info(f"User found in session: {user['email']}")
-    return jsonify({
-        'status': 'success',
-        'user': {
-            'name': user['name'],
-            'email': user['email'],
-            'picture': user.get('picture', '')
-        }
-    })
 
 # Function to check if user is logged in
 def is_logged_in():

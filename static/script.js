@@ -132,12 +132,32 @@ function handleCredentialResponse(response) {
 }
 
 function updateUIAfterLogin(user) { 
-    document.getElementById('loginPage').style.display = 'none'; // 隱藏登錄頁面
-    document.getElementById('chatPage').style.display = 'block'; // 顯示聊天頁面
-    document.getElementById('user-info').style.display = 'flex'; // 顯示用戶信息
-    document.getElementById('user-name').textContent = user.name; // 設置用戶名
-    document.getElementById('user-picture').src = user.picture; // 設置用戶頭像
+    document.getElementById('loginPage').style.display = 'none';
+    document.getElementById('chatPage').style.display = 'flex'; // 改為 'flex'
+    document.getElementById('user-info').style.display = 'flex';
+    document.getElementById('user-name').textContent = user.name;
+    document.getElementById('user-picture').src = user.picture;
+    
+    // 確保聊天容器和輸入區域正確顯示
+    document.querySelector('.chat-container').style.display = 'flex';
+    document.querySelector('.input-container').style.display = 'flex';
+    
+    // 調整聊天容器高度
+    adjustChatContainerHeight();
 }
+
+// 新增函數來調整聊天容器高度
+function adjustChatContainerHeight() {
+    const header = document.querySelector('.header');
+    const inputContainer = document.querySelector('.input-container');
+    const chatContainer = document.querySelector('.chat-container');
+    
+    const availableHeight = window.innerHeight - header.offsetHeight - inputContainer.offsetHeight;
+    chatContainer.style.height = `${availableHeight}px`;
+}
+
+// 在窗口大小改變時重新調整高度
+window.addEventListener('resize', adjustChatContainerHeight);
 
 
 function handleSignOut() { // 處理登出
@@ -366,10 +386,10 @@ function enableSmoothScroll(element) {
 
 // 調整容器高度
 function adjustContainerHeight(container) {
-    const maxHeight = window.innerHeight * 0.7;
-    container.style.maxHeight = `${maxHeight}px`;
-    container.style.overflowY = 'auto';
-}
+     // 不再設置固定的最大高度
+     container.style.flex = '1';
+     container.style.overflowY = 'auto';
+ }
 
 // 顯示錯誤信息
 function displayError(message) {

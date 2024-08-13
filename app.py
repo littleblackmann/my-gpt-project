@@ -1,12 +1,11 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, session
 from flask_session import Session
 from flask_cors import CORS
 from dotenv import load_dotenv
 from openai import OpenAI
 import os 
 from upload import upload_bp 
-from login import login_bp, is_logged_in  # Import the login blueprint and helper function
-from login import login_bp
+from login import login_bp, is_logged_in
 
 load_dotenv() # 載入 .env 檔案
 GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID')
@@ -59,7 +58,7 @@ def chat(): # 聊天視圖函數
         # 初始化會話中的對話歷史
         if 'messages' not in session: # 如果會話中沒有 messages 鍵
             session['messages'] = [ # 初始化對話歷史
-                {"role": "system", "content": "你是一個友善搞笑幽默風趣的聊天助手。請使用繁體中文回答，並盡可能提供有趣和有見地的回應。"} # 系統消息
+                {"role": "system", "content": "你是一個友善搞笑幽默風趣的天才聊天助手。請使用繁體中文回答，並盡可能提供有趣和有見地的回應。"} # 系統消息
             ]
 
         session['messages'].append({"role": "user", "content": user_input}) # 將用戶的輸入添加到對話歷史中
@@ -68,7 +67,7 @@ def chat(): # 聊天視圖函數
             response = client.chat.completions.create( # 請求 OpenAI API
                 model="gpt-4",  # 使用 GPT-4 模型
                 messages=session['messages'],
-                max_tokens=3000
+                max_tokens=2000
             )
 
             message = response.choices[0].message.content # 從 API 響應中獲取助手的回應

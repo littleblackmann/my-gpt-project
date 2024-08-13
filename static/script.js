@@ -1,6 +1,8 @@
 // 全局變量
-let uploadedFile = null;    // 上傳的文件
-let inputConfirmed = false; // 輸入是否已確認
+let uploadedFile = null;
+let inputConfirmed = false;
+let historyList = [];
+let currentChatId = null;
 
 document.addEventListener('DOMContentLoaded', function () {
     // 獲取 DOM 元素
@@ -11,16 +13,14 @@ document.addEventListener('DOMContentLoaded', function () {
     const fileName = document.getElementById('fileName');
     const sendButton = document.getElementById('sendButton');
     const inputStatus = document.getElementById('inputStatus');
-    const loginContainer = document.getElementById('login-container');
-    const userInfo = document.getElementById('user-info');
-    const userName = document.getElementById('user-name');
-    const userPicture = document.getElementById('user-picture');
-    const logoutButton = document.getElementById('logout-button');
+    const newChatButton = document.getElementById('newChatButton');
+    
 
     // 初始化設置
-    adjustContainerHeight(chatContainer);
+    adjustChatContainerHeight();
     enableSmoothScroll(chatContainer);
     addWelcomeMessage();
+    fetchChatHistory(); // 初始加載聊天歷史
 
     // 設置 MutationObserver 以在聊天內容變化時自動滾動
     const observer = new MutationObserver(() => {
@@ -34,133 +34,158 @@ document.addEventListener('DOMContentLoaded', function () {
     uploadButton.addEventListener('click', () => fileInput.click());
     fileInput.addEventListener('change', handleFileUpload);
     sendButton.addEventListener('click', sendMessage);
-    logoutButton.addEventListener('click', handleSignOut);
+    document.getElementById('logout-button').addEventListener('click', handleSignOut);
+    document.getElementById('newChatButton').addEventListener('click', startNewChat);
+    newChatButton.addEventListener('click', startNewChat);
 
     // 檢查用戶登錄狀態
     checkLoginStatus();
 
-    // 處理鍵盤輸入
-    function handleKeyDown(event) {
-        if (event.key === "Enter" && !event.shiftKey) {
-            event.preventDefault();
-            if (!inputConfirmed) {
-                confirmInput();
-            } else {
-                sendMessage();
-            }
-        } else if (event.key === "Enter" && event.shiftKey) {
-            insertNewline(this);
-        }
-    }
+    // 獲取聊天歷史紀錄
+    fetchChatHistory();
 
-    // 處理輸入變化
-    function handleInput() {
-        autoGrow(this);
-        resetConfirmation();
-    }
-
-    // 處理文件上傳
-    function handleFileUpload() {
-        if (this.files && this.files[0]) {
-            uploadedFile = this.files[0];
-            fileName.textContent = uploadedFile.name;
-            userInput.placeholder = "輸入有關文件的問題或直接發送...";
-        }
-    }
-
-    // 確認輸入
-    function confirmInput() {
-        inputConfirmed = true;
-        userInput.classList.add("confirmed");
-        inputStatus.textContent = "輸入已確認，按 Enter 發送訊息";
-    }
-
-    // 重置確認狀態
-    function resetConfirmation() {
-        inputConfirmed = false;
-        userInput.classList.remove("confirmed");
-        inputStatus.textContent = "";
-    }
-
-    // 插入新行
-    function insertNewline(element) {
-        const start = element.selectionStart;
-        const end = element.selectionEnd;
-        const value = element.value;
-        element.value = value.substring(0, start) + "\n" + value.substring(end);
-        element.selectionStart = element.selectionEnd = start + 1;
-        autoGrow(element);
-    }
+    // 處理窗口大小改變
+    window.addEventListener('resize', adjustChatContainerHeight);
 });
 
-/// Google 登錄處理
-function handleCredentialResponse(response) {
-    console.log("Google 登錄響應:", response);
-    const id_token = response.credential; 
-    console.log("準備發送到後端的 id_token:", id_token); // 這是您應該發送到後端的 id_token
-
-    // 在發送請求之前加入延遲，確保 session 已經設置
-    setTimeout(() => {
-        fetch('https://537c-114-43-157-51.ngrok-free.app/api/auth/google', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ id_token: id_token }),
-            credentials: 'include'
-        })
-        .then(response => {
-            console.log("後端響應狀態:", response.status);
-            return response.json();
-        })
-        .then(data => {
-            console.log("後端響應數據:", data);
-            if (data.status === 'success') {
-                console.log('登錄成功:', data.user);
-                updateUIAfterLogin(data.user);
-            } else {
-                console.error('登錄失敗:', data.message);
-                alert('登錄失敗: ' + data.message);
-            }
-        })
-        .catch(error => {
-            console.error('錯誤:', error);
-            alert('登錄失敗，請檢查控制台以獲取更多信息。');
-        });
-        
-    }, 1000); // 延遲 1 秒
+function startNewChat() {
+    currentChatId = null;
+    clearChatContainer();
+    addWelcomeMessage();
+    // 向服務器發送請求，創建新的聊天
+    fetch('/api/chat/new', {
+        method: 'POST',
+        credentials: 'include'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            currentChatId = data.chatId;
+            fetchChatHistory(); // 更新聊天歷史列表
+            // 移除其他項目的 'active' 類
+            document.querySelectorAll('.chat-history-item').forEach(item => item.classList.remove('active'));
+        }
+    })
+    .catch(error => console.error('創建新聊天時出錯:', error));
 }
 
-function updateUIAfterLogin(user) { 
+// 清空聊天容器
+function clearChatContainer() {
+    const chatContainer = document.getElementById("chatContainer");
+    chatContainer.innerHTML = '';
+}
+
+// 獲取聊天歷史紀錄
+function fetchChatHistory() {
+    fetch('/api/chat/history', {
+        method: 'GET',
+        credentials: 'include'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            displayChatHistory(data.chats);
+        } else {
+            console.error('無法獲取聊天歷史紀錄:', data.message);
+        }
+    })
+    .catch(error => {
+        console.error('獲取聊天歷史紀錄時出錯:', error);
+    });
+}
+
+// 顯示聊天歷史紀錄
+function displayChatHistory(chats) {
+    const historyList = document.getElementById("historyList");
+    historyList.innerHTML = '';
+
+    chats.forEach(chat => {
+        const chatItem = document.createElement('div');
+        chatItem.className = 'chat-history-item';
+        chatItem.textContent = chat.title || '新對話';
+        chatItem.onclick = () => {
+            loadChat(chat.id);
+            // 移除其他項目的 'active' 類
+            document.querySelectorAll('.chat-history-item').forEach(item => item.classList.remove('active'));
+            // 為當前項目添加 'active' 類
+            chatItem.classList.add('active');
+        };
+        if (chat.id === currentChatId) {
+            chatItem.classList.add('active');
+        }
+        historyList.appendChild(chatItem);
+    });
+}
+
+// 加載特定聊天
+function loadChat(chatId) {
+    currentChatId = chatId;
+    fetch(`/api/chat/${chatId}`, {
+        method: 'GET',
+        credentials: 'include'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            displayChatMessages(data.messages);
+        } else {
+            console.error('無法加載聊天:', data.message);
+        }
+    })
+    .catch(error => {
+        console.error('加載聊天時出錯:', error);
+    });
+}
+
+// 顯示聊天消息
+function displayChatMessages(messages) {
+    clearChatContainer();
+    const chatContainer = document.getElementById("chatContainer");
+    messages.forEach(message => {
+        const messageElement = document.createElement('div');
+        messageElement.className = `message ${message.role}-message`;
+        messageElement.textContent = message.content;
+        chatContainer.appendChild(messageElement);
+    });
+    autoScrollToBottom(chatContainer);
+}
+
+// Google 登錄處理
+function handleCredentialResponse(response) {
+    const id_token = response.credential;
+    fetch('https://537c-114-43-157-51.ngrok-free.app/api/auth/google', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ id_token: id_token }),
+        credentials: 'include'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            updateUIAfterLogin(data.user);
+        } else {
+            console.error('登錄失敗:', data.message);
+            alert('登錄失敗: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('錯誤:', error);
+        alert('登錄失敗，請檢查控制台以獲取更多信息。');
+    });
+}
+
+function updateUIAfterLogin(user) {
     document.getElementById('loginPage').style.display = 'none';
-    document.getElementById('chatPage').style.display = 'flex'; // 改為 'flex'
+    document.getElementById('chatPage').style.display = 'flex';
     document.getElementById('user-info').style.display = 'flex';
     document.getElementById('user-name').textContent = user.name;
     document.getElementById('user-picture').src = user.picture;
-    
-    // 確保聊天容器和輸入區域正確顯示
-    document.querySelector('.chat-container').style.display = 'flex';
-    document.querySelector('.input-container').style.display = 'flex';
-    
-    // 調整聊天容器高度
     adjustChatContainerHeight();
 }
 
-// 新增函數來調整聊天容器高度
-function adjustChatContainerHeight() {
-    const header = document.querySelector('.header');
-    const inputContainer = document.querySelector('.input-container');
-    const chatContainer = document.querySelector('.chat-container');
-    
-    const availableHeight = window.innerHeight - header.offsetHeight - inputContainer.offsetHeight;
-    chatContainer.style.height = `${availableHeight}px`;
-}
-
-// 在窗口大小改變時重新調整高度
-window.addEventListener('resize', adjustChatContainerHeight);
-
-
-function handleSignOut() { // 處理登出
+function handleSignOut() {
     fetch('/api/auth/logout', {
         method: 'POST',
         credentials: 'include'
@@ -179,15 +204,13 @@ function handleSignOut() { // 處理登出
     });
 }
 
-// 更新登出後的 UI
 function updateUIAfterLogout() {
-    document.getElementById('loginPage').style.display = 'flex'; // 顯示登錄頁面
-    document.getElementById('chatPage').style.display = 'none'; // 隱藏聊天頁面
-    document.getElementById('user-info').style.display = 'none'; // 隱藏用戶信息
-    document.getElementById('user-name').textContent = ''; // 清空用戶名
-    document.getElementById('user-picture').src = ''; // 清空用戶頭像
+    document.getElementById('loginPage').style.display = 'flex';
+    document.getElementById('chatPage').style.display = 'none';
+    document.getElementById('user-info').style.display = 'none';
+    document.getElementById('user-name').textContent = '';
+    document.getElementById('user-picture').src = '';
 }
-
 
 function checkLoginStatus() {
     fetch('/api/auth/user', {
@@ -213,13 +236,11 @@ function checkLoginStatus() {
     });
 }
 
-// 自動調整輸入框高度
 function autoGrow(element) {
     element.style.height = "5px";
     element.style.height = (element.scrollHeight) + "px";
 }
 
-// 發送消息
 async function sendMessage() {
     const userInput = document.getElementById("userInput");
     const message = userInput.value.trim();
@@ -242,10 +263,8 @@ async function sendMessage() {
     document.getElementById('inputStatus').textContent = "";
 }
 
-// 發送文本消息
 async function sendTextMessage(message) {
     const chatContainer = document.getElementById("chatContainer");
-
     const userMessage = document.createElement("div");
     userMessage.className = "message user-message";
     userMessage.textContent = message;
@@ -259,7 +278,7 @@ async function sendTextMessage(message) {
             headers: {
                 "Content-Type": "application/json"
             },
-            body: JSON.stringify({ message: message }),
+            body: JSON.stringify({ message: message, chatId: currentChatId }),
             credentials: 'include'
         });
 
@@ -275,16 +294,23 @@ async function sendTextMessage(message) {
 
         await typeWriter(aiMessage, data.response || '未獲得有效回應');
         autoScrollToBottom(chatContainer);
+
+        if (!currentChatId) {
+            currentChatId = data.chatId;
+            fetchChatHistory(); // 更新聊天歷史列表
+        } else {
+            // 更新當前對話的標題（如果需要）
+            updateChatTitle(currentChatId, message.substring(0, 30) + '...');
+        }
     } catch (error) {
         console.error('錯誤:', error);
         displayError('發送消息時出錯: ' + error.message);
     }
 }
 
-// 上傳並分析文件
 async function uploadAndAnalyzeFile(file, question) {
     try {
-        displayMessage(`正在上傳文件: <span class="file-name">${file.name}</span>`, 'system-message');
+        displayMessage(`正在上傳文件: ${file.name}`, 'system-message');
 
         const formData = new FormData();
         formData.append('file', file);
@@ -302,7 +328,7 @@ async function uploadAndAnalyzeFile(file, question) {
         const uploadResult = await uploadResponse.json();
         console.log('文件上傳成功:', uploadResult);
 
-        displayMessage(`文件 "<span class="file-name">${uploadResult.filename}</span>" 上傳成功`, 'system-message');
+        displayMessage(`文件 "${uploadResult.filename}" 上傳成功`, 'system-message');
 
         if (file.type.startsWith('image/')) {
             displayImagePreview(file);
@@ -311,14 +337,12 @@ async function uploadAndAnalyzeFile(file, question) {
         displayMessage('正在分析文件...', 'system-message');
 
         const analyzeUrl = `/analyze/${encodeURIComponent(uploadResult.filename)}`;
-        console.log('分析 URL:', analyzeUrl);
-
         const analyzeResponse = await fetch(analyzeUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ question: question || "請分析這個文件並提供摘要" }),
+            body: JSON.stringify({ question: question || "請分析這個文件並提供摘要", chatId: currentChatId }),
             credentials: 'include'
         });
 
@@ -336,13 +360,17 @@ async function uploadAndAnalyzeFile(file, question) {
 
         await typeWriter(aiMessage, `AI（文件分析結果：${file.name}：${analysisResult.analysis}`);
         autoScrollToBottom(chatContainer);
+
+        if (!currentChatId) {
+            currentChatId = analysisResult.chatId;
+            fetchChatHistory(); // 更新聊天歷史列表
+        }
     } catch (error) {
         console.error('錯誤:', error);
         displayError('文件處理錯誤: ' + error.message);
     }
 }
 
-// 顯示圖片預覽
 function displayImagePreview(file) {
     const imagePreview = document.createElement('img');
     imagePreview.src = URL.createObjectURL(file);
@@ -357,7 +385,6 @@ function displayImagePreview(file) {
     document.getElementById("chatContainer").appendChild(previewContainer);
 }
 
-// 打字機效果
 async function typeWriter(element, text, speed = 20) {
     element.innerHTML = '';
     const lines = text.split('\n');
@@ -372,26 +399,23 @@ async function typeWriter(element, text, speed = 20) {
     }
 }
 
-// 自動滾動到底部
 function autoScrollToBottom(container) {
     setTimeout(() => {
         container.scrollTop = container.scrollHeight;
     }, 0);
 }
 
-// 啟用平滑滾動
 function enableSmoothScroll(element) {
     element.style.scrollBehavior = 'smooth';
 }
 
-// 調整容器高度
-function adjustContainerHeight(container) {
-     // 不再設置固定的最大高度
-     container.style.flex = '1';
-     container.style.overflowY = 'auto';
- }
+function adjustChatContainerHeight() {
+    const chatContainer = document.querySelector('.chat-messages');
+    const inputContainer = document.querySelector('.input-container');
+    const availableHeight = window.innerHeight - inputContainer.offsetHeight;
+    chatContainer.style.height = `${availableHeight}px`;
+}
 
-// 顯示錯誤信息
 function displayError(message) {
     const chatContainer = document.getElementById("chatContainer");
     const errorMessage = document.createElement("div");
@@ -401,7 +425,6 @@ function displayError(message) {
     autoScrollToBottom(chatContainer);
 }
 
-// 添加歡迎信息
 function addWelcomeMessage() {
     const chatContainer = document.getElementById("chatContainer");
     const welcomeMessage = document.createElement("div");
@@ -410,24 +433,15 @@ function addWelcomeMessage() {
     chatContainer.appendChild(welcomeMessage);
 }
 
-// 顯示消息
 function displayMessage(message, className) {
     const chatContainer = document.getElementById("chatContainer");
     const messageElement = document.createElement("div");
     messageElement.className = `message ${className}`;
-
-    const lines = message.split('\n');
-    lines.forEach(line => {
-        const p = document.createElement('p');
-        p.innerHTML = line;
-        messageElement.appendChild(p);
-    });
-
+    messageElement.textContent = message;
     chatContainer.appendChild(messageElement);
     autoScrollToBottom(chatContainer);
 }
 
-// 重置輸入區域
 function resetInputArea() {
     uploadedFile = null;
     document.getElementById('userInput').value = "";
@@ -435,3 +449,109 @@ function resetInputArea() {
     document.getElementById('userInput').placeholder = "輸入您的訊息...";
     inputConfirmed = false;
 }
+
+function handleKeyDown(event) {
+    if (event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault();
+        if (!inputConfirmed) {
+            confirmInput();
+        } else {
+            sendMessage();
+        }
+    } else if (event.key === "Enter" && event.shiftKey) {
+        insertNewline(this);
+    }
+}
+
+function handleInput() {
+    autoGrow(this);
+    resetConfirmation();
+}
+
+function handleFileUpload() {
+    if (this.files && this.files[0]) {
+        uploadedFile = this.files[0];
+        fileName.textContent = uploadedFile.name;
+        userInput.placeholder = "輸入有關文件的問題或直接發送...";
+    }
+}
+
+function confirmInput() {
+    inputConfirmed = true;
+    userInput.classList.add("confirmed");
+    inputStatus.textContent = "輸入已確認，按 Enter 發送訊息";
+}
+
+function resetConfirmation() {
+    inputConfirmed = false;
+    userInput.classList.remove("confirmed");
+    inputStatus.textContent = "";
+}
+
+function insertNewline(element) {
+    const start = element.selectionStart;
+    const end = element.selectionEnd;
+    const value = element.value;
+    element.value = value.substring(0, start) + "\n" + value.substring(end);
+    element.selectionStart = element.selectionEnd = start + 1;
+    autoGrow(element);
+}
+
+// 新增：保存聊天記錄
+function saveChatHistory() {
+    if (currentChatId) {
+        const chatContainer = document.getElementById("chatContainer");
+        const messages = chatContainer.innerHTML;
+        localStorage.setItem(`chat_${currentChatId}`, messages);
+    }
+}
+
+// 新增：加載保存的聊天記錄
+function loadSavedChat(chatId) {
+    const savedChat = localStorage.getItem(`chat_${chatId}`);
+    if (savedChat) {
+        const chatContainer = document.getElementById("chatContainer");
+        chatContainer.innerHTML = savedChat;
+        autoScrollToBottom(chatContainer);
+    }
+}
+
+function fetchAndDisplayChatHistory() {
+    fetch('/api/chat/history', {
+        method: 'GET',
+        credentials: 'include'
+    })
+    .then(response => response.json())
+    .then(data => {
+        const historyList = document.getElementById('historyList');
+        historyList.innerHTML = '';  // 清空现有列表
+        data.chats.forEach(chat => {
+            const li = document.createElement('li');
+            li.textContent = chat.title || '新对话';  // 假设每个聊天有一个标题
+            li.onclick = () => loadChat(chat.id);  // 加载特定聊天的函数
+            historyList.appendChild(li);
+        });
+    })
+    .catch(error => console.error('Error fetching chat history:', error));
+}
+
+// 在文件末尾添加這個函數
+function updateChatTitle(chatId, newTitle) {
+    fetch(`/api/chat/${chatId}/title`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ title: newTitle }),
+        credentials: 'include'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            fetchChatHistory(); // 更新聊天歷史列表以顯示新標題
+        }
+    })
+    .catch(error => console.error('更新聊天標題時出錯:', error));
+}
+// 在適當的地方調用 saveChatHistory()，比如在發送消息後和接收回應後
+// 在 loadChat 函數中調用 loadSavedChat(chatId)

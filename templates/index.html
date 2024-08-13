@@ -21,36 +21,51 @@
     </div>
 
     <div id="chatPage" style="display: none;">
-        <div class="header">
-            <h1>小黑AI</h1>
-            <div id="user-info" style="display: none;">
-                <img id="user-picture" alt="用戶頭像">
-                <span id="user-name"></span>
-                <button id="logout-button" onclick="handleSignOut()">登出</button>
-            </div>
-        </div>
-        <div class="main-content">
-            <div id="chatContainer" class="chat-container">
-                <!-- 聊天消息將在這裡顯示 -->
-            </div>
-        </div>
-        <div class="input-container">
-            <div class="input-wrapper">
-                <textarea id="userInput" class="chat-input" placeholder="輸入您的訊息..." rows="1"></textarea>
-                <div class="button-container">
-                    <button id="sendButton">發送</button>
-                    <div class="upload-container">
-                        <input type="file" id="fileInput" style="display: none;" accept=".txt,.pdf,.doc,.docx,.png,.jpg,.jpeg,.gif">
-                        <button id="uploadButton" class="upload-button" title="上傳文件">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="upload-icon">
-                                <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
+        <div class="chat-container">
+            <aside class="sidebar">
+                <div class="sidebar-header">
+                    <button id="newChatButton">+ 新對話</button>
+                </div>
+                <nav id="historyList" class="conversation-list">
+                    <!-- 聊天歷史將在這裡顯示 -->
+                </nav>
+                <div class="sidebar-footer">
+                    <div id="user-info">
+                        <img id="user-picture" alt="用戶頭像">
+                        <span id="user-name"></span>
+                    </div>
+                    <button id="logout-button">登出</button>
+                </div>
+            </aside>
+
+            <main class="chat-main">
+                <div id="chatContainer" class="chat-messages">
+                    <!-- 聊天消息將在這裡顯示 -->
+                </div>
+                <div class="input-container">
+                    <div class="input-wrapper">
+                        <textarea id="userInput" class="chat-input" placeholder="輸入您的訊息..." rows="1"></textarea>
+                        <button id="sendButton" class="send-button">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <line x1="22" y1="2" x2="11" y2="13"></line>
+                                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
                             </svg>
                         </button>
                     </div>
+                    <div class="input-controls">
+                        <input type="file" id="fileInput" style="display: none;" accept=".txt,.pdf,.doc,.docx,.png,.jpg,.jpeg,.gif">
+                        <button id="uploadButton" class="upload-button" title="上傳文件">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="17 8 12 3 7 8"></polyline>
+                                <line x1="12" y1="3" x2="12" y2="15"></line>
+                            </svg>
+                        </button>
+                        <span id="fileName"></span>
+                    </div>
+                    <div id="inputStatus" class="input-status"></div>
                 </div>
-            </div>
-            <div id="inputStatus" class="input-status"></div>
-            <span id="fileName"></span>
+            </main>
         </div>
     </div>
 

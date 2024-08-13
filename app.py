@@ -6,83 +6,215 @@ from openai import OpenAI
 import os 
 from upload import upload_bp 
 from login import login_bp, is_logged_in
+from pymongo import MongoClient, ASCENDING
+from bson.objectid import ObjectId
+from datetime import datetime
+from flask.json.provider import DefaultJSONProvider
 
-load_dotenv() # 載入 .env 檔案
+load_dotenv()  # 載入 .env 檔案
 GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID')
 GOOGLE_CLIENT_SECRET = os.getenv('GOOGLE_CLIENT_SECRET')
 
-app = Flask(__name__, static_folder='static', template_folder='templates') # 初始化 Flask 應用
-app.secret_key = os.urandom(24)  # 用於會話加密
-app.register_blueprint(upload_bp) # 註冊上傳藍圖
-app.register_blueprint(login_bp, url_prefix='/api/auth')  # Register the login blueprint
+class CustomJSONProvider(DefaultJSONProvider):
+    def default(self, obj):
+        if isinstance(obj, ObjectId):
+            return str(obj)
+        if isinstance(obj, datetime):
+            return obj.isoformat()
+        return super().default(obj)
+
+app = Flask(__name__, static_folder='static', template_folder='templates')
+app.json = CustomJSONProvider(app)
+app.secret_key = os.urandom(24)
+app.register_blueprint(upload_bp)
+app.register_blueprint(login_bp, url_prefix='/api/auth')
 
 CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
 
-app.config['SESSION_TYPE'] = 'filesystem'  # 確保這一行存在
+app.config['SESSION_TYPE'] = 'filesystem'
 app.config['SESSION_PERMANENT'] = False
 app.config['SESSION_USE_SIGNER'] = True
-app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY')  # 確保你已設置這個環境變數
+app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY')
 
 Session(app)
 
-openai_api_key = os.getenv("OPENAI_API_KEY") # 從環境變數中獲取 OpenAI API 金鑰
-if not openai_api_key:  # 如果沒有設置 API 金鑰，則拋出錯誤
+openai_api_key = os.getenv("OPENAI_API_KEY")
+if not openai_api_key:
     raise ValueError("No OpenAI API key found. Please set the OPENAI_API_KEY environment variable.")
 
-# 初始化 OpenAI 客戶端
-try: # 處理初始化失敗的情況
-    client = OpenAI(api_key=openai_api_key) # 初始化 OpenAI 客戶端
-except Exception as e: # 處理初始化失敗的情況
-    print(f"Failed to initialize OpenAI client: {str(e)}") # 輸出錯誤消息
-    raise   # 拋出異常以停止程序運行
+try:
+    client = OpenAI(api_key=openai_api_key)
+except Exception as e:
+    print(f"Failed to initialize OpenAI client: {str(e)}")
+    raise
 
-# 設置上傳文件夾
-UPLOAD_FOLDER = 'uploads'  # 上傳文件夾的名稱
-if not os.path.exists(UPLOAD_FOLDER): # 如果文件夾不存在，則創建文件夾
-    os.makedirs(UPLOAD_FOLDER) # 創建文件夾
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER  # 設置上傳文件夾
+UPLOAD_FOLDER = 'uploads'
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-@app.route("/") # 首頁路由
-def home(): # 首頁視圖函數
-    return render_template("index.html") # 返回 index.html 模板
+class Database:
+    def __init__(self, uri='mongodb://localhost:27017/', db_name='chat_app'):
+        self.client = MongoClient(uri)
+        self.db = self.client[db_name]
+        self.chats = self.db['chats']
+        self.messages = self.db['messages']
+        
+        # 創建索引
+        self.chats.create_index([("user_id", ASCENDING)])
+        self.messages.create_index([("chat_id", ASCENDING)])
 
-@app.route("/chat", methods=["POST"]) # 聊天路由
-def chat(): # 聊天視圖函數
-    if not is_logged_in(): # Check if the user is logged in
-        return jsonify({"error": "User not authenticated"}), 401 # Return an error if the user is not authenticated
+    def create_chat(self, user_id, title="New Chat"):
+        chat = {
+            'user_id': user_id,
+            'title': title,
+            'created_at': datetime.utcnow(),
+            'updated_at': datetime.utcnow()
+        }
+        result = self.chats.insert_one(chat)
+        return str(result.inserted_id)
 
-    try: # 處理請求出錯的情況
-        user_input = request.json.get("message")  # 從請求中獲取用戶的輸入
-        print("從客戶端收到:", user_input)  # 偵錯
+    def get_chat(self, chat_id):
+        return self.chats.find_one({"_id": ObjectId(chat_id)})
 
-        # 初始化會話中的對話歷史
-        if 'messages' not in session: # 如果會話中沒有 messages 鍵
-            session['messages'] = [ # 初始化對話歷史
-                {"role": "system", "content": "你是一個友善搞笑幽默風趣的天才聊天助手。請使用繁體中文回答，並盡可能提供有趣和有見地的回應。"} # 系統消息
-            ]
+    def get_user_chats(self, user_id):
+        return list(self.chats.find({"user_id": user_id}).sort("updated_at", -1))
 
-        session['messages'].append({"role": "user", "content": user_input}) # 將用戶的輸入添加到對話歷史中
+    def insert_message(self, chat_id, role, content):
+        message = {
+            'chat_id': ObjectId(chat_id),
+            'role': role,
+            'content': content,
+            'timestamp': datetime.utcnow()
+        }
+        self.messages.insert_one(message)
+        self.chats.update_one(
+            {"_id": ObjectId(chat_id)},
+            {"$set": {"updated_at": datetime.utcnow()}}
+        )
 
-        try: # 處理 OpenAI API 請求出錯的情況
-            response = client.chat.completions.create( # 請求 OpenAI API
-                model="gpt-4",  # 使用 GPT-4 模型
-                messages=session['messages'],
-                max_tokens=2000
-            )
+    def get_chat_messages(self, chat_id):
+        return list(self.messages.find({"chat_id": ObjectId(chat_id)}).sort("timestamp", 1))
 
-            message = response.choices[0].message.content # 從 API 響應中獲取助手的回應
-            print("傳送到客戶端的回應:", message)  # 偵錯
+    def close(self):
+        self.client.close()
 
-            session['messages'].append({"role": "assistant", "content": message}) # 將助手的回應添加到對話歷史中
+@app.route("/")
+def home():
+    return render_template("index.html")
 
-            return jsonify({"response": message}) # 返回助手的回應
-        except Exception as e: # 處理 OpenAI API 請求出錯的情況
-            print(f"OpenAI API 請求錯誤: {str(e)}") # 偵錯
-            return jsonify({"error": f"API 請求錯誤: {str(e)}"}), 400 # 返回錯誤消息
+@app.route("/chat", methods=["POST"])
+def chat():
+    if not is_logged_in():
+        return jsonify({"error": "User not authenticated"}), 401
 
-    except Exception as e: # 處理請求出錯的情況
-        print(f"處理請求出錯: {str(e)}") # 偵錯
-        return jsonify({"error": str(e)}), 500 # 返回錯誤消息
+    user_id = session['user']['id']
+    chat_id = request.json.get("chatId")
+    user_input = request.json.get("message")
 
-if __name__ == "__main__": # 程序運行入口
-    app.run(debug=True, port=9527) # 啟動應用，設置 debug 模式和端口為 9527
+    db = Database()
+
+    if not chat_id:
+            # 創建新聊天
+            title = user_input[:20] + "..." if len(user_input) > 20 else user_input
+            chat_id = db.create_chat(user_id, title)
+    else:
+            # 更新聊天標題
+            chat = db.get_chat(chat_id)
+            if chat and chat['title'] == "New Chat":
+                db.update_chat_title(chat_id, user_input[:20] + "..." if len(user_input) > 20 else user_input)
+
+    try:
+        # 獲取聊天歷史
+        chat_messages = db.get_chat_messages(chat_id)
+        messages = [{"role": "system", "content": "你是一個友善搞笑幽默風趣的天才聊天助手。請使用繁體中文回答，並盡可能提供有趣和有見地的回應。"}]
+        messages.extend([{"role": msg["role"], "content": msg["content"]} for msg in chat_messages])
+        messages.append({"role": "user", "content": user_input})
+
+        response = client.chat.completions.create(
+            model="gpt-4",
+            messages=messages,
+            max_tokens=2000
+        )
+
+        assistant_message = response.choices[0].message.content
+
+        # 保存消息
+        db.insert_message(chat_id, 'user', user_input)
+        db.insert_message(chat_id, 'assistant', assistant_message)
+
+        return jsonify({"response": assistant_message, "chatId": chat_id})
+    except Exception as e:
+        print(f"OpenAI API 請求錯誤: {str(e)}")
+        return jsonify({"error": f"API 請求錯誤: {str(e)}"}), 400
+    finally:
+        db.close()
+
+@app.route("/api/chat/new", methods=["POST"])
+def new_chat():
+    if not is_logged_in():
+        return jsonify({"status": "error", "message": "用戶未登錄"}), 401
+
+    user_id = session['user']['id']
+    db = Database()
+    try:
+        chat_id = db.create_chat(user_id)
+        return jsonify({"status": "success", "chatId": chat_id})
+    except Exception as e:
+        print(f"創建新聊天時出錯: {str(e)}")
+        return jsonify({"status": "error", "message": "創建新聊天失敗"}), 500
+    finally:
+        db.close()
+
+@app.route("/api/chat/history", methods=["GET"])
+def get_chat_history():
+    if not is_logged_in():
+        return jsonify({"status": "error", "message": "用戶未登錄"}), 401
+
+    user_id = session['user']['id']
+    try:
+        db = Database()
+        chats = db.get_user_chats(user_id)
+        db.close()
+        
+        chat_summaries = [
+            {
+                'id': str(chat['_id']),
+                'title': chat['title']
+            }
+            for chat in chats
+        ]
+        
+        return jsonify({"status": "success", "chats": chat_summaries})
+    except Exception as e:
+        print(f"獲取聊天歷史紀錄時出錯: {str(e)}")
+        return jsonify({"status": "error", "message": "獲取聊天歷史紀錄失敗"}), 500
+
+@app.route("/api/chat/<chat_id>", methods=["GET"])
+def get_chat(chat_id):
+    if not is_logged_in():
+        return jsonify({"status": "error", "message": "用戶未登錄"}), 401
+
+    try:
+        db = Database()
+        chat = db.get_chat(chat_id)
+        if not chat:
+            return jsonify({"status": "error", "message": "聊天不存在"}), 404
+        
+        messages = db.get_chat_messages(chat_id)
+        db.close()
+        
+        return jsonify({
+            "status": "success",
+            "chat": {
+                "id": str(chat['_id']),
+                "title": chat['title'],
+                "messages": messages
+            }
+        })
+    except Exception as e:
+        print(f"獲取聊天時出錯: {str(e)}")
+        return jsonify({"status": "error", "message": "獲取聊天失敗"}), 500
+
+if __name__ == "__main__":
+    app.run(debug=True, port=9527)

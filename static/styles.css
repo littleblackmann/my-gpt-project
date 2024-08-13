@@ -8,7 +8,6 @@ body, html {
     color: #ececf1;
     font-size: 16px;
     line-height: 1.6;
-    overflow: hidden;
 }
 
 /* 登入頁面樣式 */
@@ -47,27 +46,60 @@ body, html {
 /* 聊天頁面樣式 */
 #chatPage {
     display: flex;
-    flex-direction: column;
     height: 100vh;
 }
 
-.header { 
+.chat-container {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background-color: #444654;
-    padding: 10px 20px;
-    border-bottom: 1px solid #565869;
+    width: 100%;
+    height: 100%;
+    position: fixed;  /* 添加此行 */
+    top: 0;           /* 添加此行 */
+    left: 0;          /* 添加此行 */
 }
 
-.header h1 {
-    margin: 0;
-    font-size: 24px;
+.sidebar {
+    width: 260px;
+    background-color: #202123;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid #565869;
+    height: 100vh;    /* 添加此行 */
+    position: fixed;  /* 添加此行 */
+    left: 0;          /* 添加此行 */
+    top: 0;           /* 添加此行 */
+    overflow-y: auto; /* 添加此行，允許滾動 */
+}
+
+.sidebar-header {
+    padding: 10px;
+}
+
+#newChatButton {
+    width: 100%;
+    padding: 10px;
+    background-color: #343541;
+    color: #ffffff;
+    border: 1px solid #565869;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.conversation-list {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding: 10px;
+}
+
+.sidebar-footer {
+    padding: 10px;
+    border-top: 1px solid #4d4d4f;
 }
 
 #user-info {
     display: flex;
     align-items: center;
+    margin-bottom: 10px;
 }
 
 #user-picture {
@@ -77,15 +109,12 @@ body, html {
     margin-right: 10px;
 }
 
-#user-name {
-    margin-right: 10px;
-}
-
 #logout-button {
+    width: 100%;
+    padding: 5px 10px;
     background-color: #565869;
     color: white;
     border: none;
-    padding: 5px 10px;
     border-radius: 4px;
     cursor: pointer;
 }
@@ -94,19 +123,18 @@ body, html {
     background-color: #6e7188;
 }
 
-.main-content {
-    flex: 1;
+.chat-main {
+    flex-grow: 1;
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    margin-left: 260px; /* 添加此行，為側邊欄留出空間 */
 }
 
-.chat-container {
-    flex: 1;
+.chat-messages {
+    flex-grow: 1;
     overflow-y: auto;
     padding: 20px;
-    display: flex;
-    flex-direction: column;
 }
 
 .message {
@@ -163,34 +191,34 @@ body, html {
     overflow-y: auto;
 }
 
-.button-container {
-    display: flex;
-    align-items: center;
+.send-button {
+    background: none;
+    border: none;
+    color: #ececf1;
+    cursor: pointer;
+    padding: 8px 12px;
     margin-left: 10px;
 }
 
-#sendButton {
-    background-color: #565869;
-    color: #ececf1;
-    border: none;
-    border-radius: 5px;
-    padding: 8px 12px;
-    cursor: pointer;
-    transition: background-color 0.3s;
+.send-button svg {
+    width: 20px;
+    height: 20px;
 }
 
-#sendButton:hover {
-    background-color: #6e7188;
+.input-controls {
+    display: flex;
+    align-items: center;
+    margin-top: 10px;
 }
 
 .upload-button {
     background: none;
     border: none;
     cursor: pointer;
-    margin-left: 10px;
+    margin-right: 10px;
 }
 
-.upload-icon {
+.upload-button svg {
     width: 24px;
     height: 24px;
     color: #ececf1;
@@ -205,20 +233,38 @@ body, html {
 #fileName {
     font-size: 12px;
     color: #acacbe;
-    margin-top: 5px;
+    margin-left: 10px;
+}
+
+.chat-history-item {
+    padding: 10px;
+    margin-bottom: 5px;
+    background-color: #343541;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.chat-history-item:hover {
+    background-color: #40414f;
+}
+
+.chat-history-item.active {
+    background-color: #40414f;
+    font-weight: bold;
 }
 
 /* 滾動條樣式 */
-.chat-container::-webkit-scrollbar, .chat-input::-webkit-scrollbar {
+.chat-messages::-webkit-scrollbar, .chat-input::-webkit-scrollbar {
     width: 8px;
 }
 
-.chat-container::-webkit-scrollbar-thumb, .chat-input::-webkit-scrollbar-thumb {
+.chat-messages::-webkit-scrollbar-thumb, .chat-input::-webkit-scrollbar-thumb {
     background-color: #565869;
     border-radius: 4px;
 }
 
-.chat-container::-webkit-scrollbar-thumb:hover, .chat-input::-webkit-scrollbar-thumb:hover {
+.chat-messages::-webkit-scrollbar-thumb:hover, .chat-input::-webkit-scrollbar-thumb:hover {
     background-color: #6e7188;
 }
 
@@ -234,27 +280,21 @@ body, html {
 
 /* 響應式設計 */
 @media (max-width: 768px) {
-    .header {
+    .chat-container {
         flex-direction: column;
-        align-items: flex-start;
     }
 
-    #user-info {
-        margin-top: 10px;
+    .sidebar {
+        width: 100%;
+        height: auto;
     }
 
     .input-wrapper {
         flex-direction: column;
     }
 
-    .button-container {
+    .send-button {
         margin-top: 10px;
-        justify-content: space-between;
-        width: 100%;
-    }
-
-    .chat-input {
-        width: 100%;
     }
 
     .message {

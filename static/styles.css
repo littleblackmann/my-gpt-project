@@ -254,6 +254,51 @@ body, html {
     font-weight: bold;
 }
 
+.chat-history-item {
+    position: relative;
+    padding-right: 30px;
+}
+
+.chat-history-item .options-button {
+    position: absolute;
+    right: 5px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    display: none;
+}
+
+.chat-history-item:hover .options-button {
+    display: block;
+}
+
+.options-menu {
+    position: absolute;
+    right: 0;
+    top: 100%;
+    background-color: #40414f;
+    border: 1px solid #565869;
+    border-radius: 4px;
+    z-index: 1000;
+}
+
+.options-menu button {
+    display: block;
+    width: 100%;
+    padding: 8px 12px;
+    text-align: left;
+    background: none;
+    border: none;
+    color: #ececf1;
+    cursor: pointer;
+}
+
+.options-menu button:hover {
+    background-color: #565869;
+}
+
 /* 滾動條樣式 */
 .chat-messages::-webkit-scrollbar, .chat-input::-webkit-scrollbar {
     width: 8px;

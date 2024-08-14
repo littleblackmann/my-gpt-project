@@ -2,6 +2,7 @@ from pymongo import MongoClient, ASCENDING
 from bson.objectid import ObjectId
 from datetime import datetime
 
+
 class Database:
     def __init__(self, uri='mongodb://localhost:27017/', db_name='chat_app'):
         self.client = MongoClient(uri)
@@ -53,3 +54,7 @@ class Database:
             {"_id": ObjectId(chat_id)},
             {"$set": {"title": new_title, "updated_at": datetime.utcnow()}}
         )
+
+    def delete_chat(self, chat_id):
+        self.chats.delete_one({"_id": ObjectId(chat_id)})
+        self.messages.delete_many({"chat_id": ObjectId(chat_id)})

@@ -102,14 +102,40 @@ function displayChatHistory(chats) {
     chats.forEach(chat => {
         const chatItem = document.createElement('div');
         chatItem.className = 'chat-history-item';
-        chatItem.textContent = chat.title || '新對話';
-        chatItem.onclick = () => {
-            loadChat(chat.id);
-            // 移除其他項目的 'active' 類
-            document.querySelectorAll('.chat-history-item').forEach(item => item.classList.remove('active'));
-            // 為當前項目添加 'active' 類
-            chatItem.classList.add('active');
-        };
+        chatItem.dataset.id = chat.id;
+        chatItem.innerHTML = `
+            <span class="chat-title">${chat.title || '新對話'}</span>
+            <button class="options-button">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="1"></circle>
+                    <circle cx="19" cy="12" r="1"></circle>
+                    <circle cx="5" cy="12" r="1"></circle>
+                </svg>
+            </button>
+            <div class="options-menu" style="display: none;">
+                <button class="rename-button">重新命名</button>
+                <button class="delete-button">刪除</button>
+            </div>
+        `;
+
+        chatItem.querySelector('.options-button').addEventListener('click', toggleOptionsMenu);
+        chatItem.querySelector('.rename-button').addEventListener('click', (e) => {
+            e.stopPropagation();
+            renameChat(chat.id);
+        });
+        chatItem.querySelector('.delete-button').addEventListener('click', (e) => {
+            e.stopPropagation();
+            deleteChat(chat.id);
+        });
+
+        chatItem.addEventListener('click', (e) => {
+            if (!e.target.closest('.options-button') && !e.target.closest('.options-menu')) {
+                loadChat(chat.id);
+                document.querySelectorAll('.chat-history-item').forEach(item => item.classList.remove('active'));
+                chatItem.classList.add('active');
+            }
+        });
+
         if (chat.id === currentChatId) {
             chatItem.classList.add('active');
         }
@@ -141,14 +167,22 @@ function loadChat(chatId) {
 function displayChatMessages(messages) {
     clearChatContainer();
     const chatContainer = document.getElementById("chatContainer");
-    messages.forEach(message => {
-        const messageElement = document.createElement('div');
-        messageElement.className = `message ${message.role}-message`;
-        messageElement.textContent = message.content;
-        chatContainer.appendChild(messageElement);
-    });
+
+    // 檢查 messages 是否為數組
+    if (Array.isArray(messages)) {
+        messages.forEach(message => {
+            const messageElement = document.createElement('div');
+            messageElement.className = `message ${message.role}-message`;
+            messageElement.textContent = message.content;
+            chatContainer.appendChild(messageElement);
+        });
+    } else {
+        console.error("無法顯示聊天消息: messages 不是一個數組。", messages);
+    }
+    
     autoScrollToBottom(chatContainer);
 }
+
 
 // Google 登錄處理
 function handleCredentialResponse(response) {
@@ -396,6 +430,62 @@ async function typeWriter(element, text, speed = 20) {
             autoScrollToBottom(element.parentElement);
             await new Promise(resolve => setTimeout(resolve, speed));
         }
+    }
+}
+
+function toggleOptionsMenu(e) {
+    e.stopPropagation();
+    const optionsMenu = e.target.closest('.chat-history-item').querySelector('.options-menu');
+    optionsMenu.style.display = optionsMenu.style.display === 'none' ? 'block' : 'none';
+}
+
+function renameChat(chatId) {
+    const chatItem = document.querySelector(`.chat-history-item[data-id="${chatId}"]`);
+    const currentTitle = chatItem.querySelector('.chat-title').textContent;
+    const newTitle = prompt("請輸入新的聊天標題:", currentTitle);
+    
+    if (newTitle && newTitle !== currentTitle) {
+        fetch(`/api/chat/${chatId}/rename`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ title: newTitle }),
+            credentials: 'include'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                chatItem.querySelector('.chat-title').textContent = newTitle;
+            } else {
+                console.error('重命名聊天失敗:', data.message);
+            }
+        })
+        .catch(error => console.error('重命名聊天時出錯:', error));
+    }
+}
+
+function deleteChat(chatId) {
+    if (confirm('確定要刪除這個對話嗎？')) {
+        fetch(`/api/chat/${chatId}/delete`, {
+            method: 'DELETE',
+            credentials: 'include'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                const chatItem = document.querySelector(`.chat-history-item[data-id="${chatId}"]`);
+                chatItem.remove();
+                if (currentChatId === chatId) {
+                    currentChatId = null;
+                    clearChatContainer();
+                    addWelcomeMessage();
+                }
+            } else {
+                console.error('刪除聊天失敗:', data.message);
+            }
+        })
+        .catch(error => console.error('刪除聊天時出錯:', error));
     }
 }
 

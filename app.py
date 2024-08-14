@@ -6,10 +6,19 @@ from openai import OpenAI
 import os 
 from upload import upload_bp 
 from login import login_bp, is_logged_in
-from pymongo import MongoClient, ASCENDING
-from bson.objectid import ObjectId
-from datetime import datetime
 from flask.json.provider import DefaultJSONProvider
+from datetime import datetime
+from bson.objectid import ObjectId
+from database import Database  # 從 database.py 中導入 Database 類
+
+# 確保正確導入了 Database 類
+import importlib
+import database
+importlib.reload(database)
+
+print("Database module path:", database.__file__)
+print("Database class methods:", dir(Database))
+
 
 load_dotenv()  # 載入 .env 檔案
 GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID')
@@ -52,52 +61,6 @@ UPLOAD_FOLDER = 'uploads'
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-
-class Database:
-    def __init__(self, uri='mongodb://localhost:27017/', db_name='chat_app'):
-        self.client = MongoClient(uri)
-        self.db = self.client[db_name]
-        self.chats = self.db['chats']
-        self.messages = self.db['messages']
-        
-        # 創建索引
-        self.chats.create_index([("user_id", ASCENDING)])
-        self.messages.create_index([("chat_id", ASCENDING)])
-
-    def create_chat(self, user_id, title="New Chat"):
-        chat = {
-            'user_id': user_id,
-            'title': title,
-            'created_at': datetime.utcnow(),
-            'updated_at': datetime.utcnow()
-        }
-        result = self.chats.insert_one(chat)
-        return str(result.inserted_id)
-
-    def get_chat(self, chat_id):
-        return self.chats.find_one({"_id": ObjectId(chat_id)})
-
-    def get_user_chats(self, user_id):
-        return list(self.chats.find({"user_id": user_id}).sort("updated_at", -1))
-
-    def insert_message(self, chat_id, role, content):
-        message = {
-            'chat_id': ObjectId(chat_id),
-            'role': role,
-            'content': content,
-            'timestamp': datetime.utcnow()
-        }
-        self.messages.insert_one(message)
-        self.chats.update_one(
-            {"_id": ObjectId(chat_id)},
-            {"$set": {"updated_at": datetime.utcnow()}}
-        )
-
-    def get_chat_messages(self, chat_id):
-        return list(self.messages.find({"chat_id": ObjectId(chat_id)}).sort("timestamp", 1))
-
-    def close(self):
-        self.client.close()
 
 @app.route("/")
 def home():
@@ -215,6 +178,48 @@ def get_chat(chat_id):
     except Exception as e:
         print(f"獲取聊天時出錯: {str(e)}")
         return jsonify({"status": "error", "message": "獲取聊天失敗"}), 500
+
+@app.route("/api/chat/<chat_id>/delete", methods=["DELETE"])
+def delete_chat(chat_id):
+    if not is_logged_in():
+        return jsonify({"status": "error", "message": "用戶未登錄"}), 401
+
+    try:
+        db = Database()
+        print("Database instance methods:", dir(db))
+        print("delete_chat method exists:", hasattr(db, 'delete_chat'))
+        print("Type of db:", type(db))
+        db.delete_chat(chat_id)
+        db.close()
+        return jsonify({"status": "success", "message": "聊天已刪除"})
+    except Exception as e:
+        print(f"刪除聊天時出錯: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"status": "error", "message": f"刪除聊天失敗: {str(e)}"}), 500
+
+@app.route("/api/chat/<chat_id>/rename", methods=["PUT"])
+def rename_chat(chat_id):
+    if not is_logged_in():
+        return jsonify({"status": "error", "message": "用戶未登錄"}), 401
+
+    new_title = request.json.get("title")
+    if not new_title:
+        return jsonify({"status": "error", "message": "新標題不能為空"}), 400
+
+    try:
+        db = Database()
+        print("Database instance methods:", dir(db))
+        print("update_chat_title method exists:", hasattr(db, 'update_chat_title'))
+        print("Type of db:", type(db))
+        db.update_chat_title(chat_id, new_title)
+        db.close()
+        return jsonify({"status": "success", "message": "聊天標題已更新"})
+    except Exception as e:
+        print(f"重命名聊天時出錯: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"status": "error", "message": f"重命名聊天失敗: {str(e)}"}), 500
 
 if __name__ == "__main__":
     app.run(debug=True, port=9527)
